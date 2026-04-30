@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="theme-color" content="#0f1117" />
+<title>棚卸しツール</title>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: #0f1117; font-family: 'Noto Sans JP','BIZ UDGothic',-apple-system,BlinkMacSystemFont,sans-serif; }
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+  input[type=number] { -moz-appearance:textfield; }
+  @keyframes scanline {0%{top:10%;opacity:0}20%{opacity:1}80%{opacity:1}100%{top:90%;opacity:0}}
+  @keyframes spin {to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
+
+// ── localStorage 保存 ───────────────────────────────────────
+const STORE_PRODUCTS = "inv-products-v1";
+const STORE_HISTORY  = "inv-history-v1";
+function sGet(key) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch { return null; }
+}
+function sSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch { return false; }
+}
+
+// ── 初期データ ──────────────────────────────────────────────
+const INIT_PRODUCTS = [
+  { id:"4901234567890", name:"熱中飴 1kg業務用",        sku:"ATSUNAMA-1KG",  category:"食品", unit:"袋",    caseQty:10, cost:480 },
+  { id:"4902345678901", name:"多良間島産黒糖 180g×3",   sku:"TARAMA-180x3",  category:"食品", unit:"セット",caseQty:6,  cost:620 },
+  { id:"4903456789012", name:"黒糖きな粉飴 200g",        sku:"KINAKO-200G",   category:"食品", unit:"袋",    caseQty:20, cost:310 },
+  { id:"4904567890123", name:"沖縄塩せんべい 100g",      sku:"SHIO-SENBEI",   category:"食品", unit:"袋",    caseQty:15, cost:250 },
+  { id:"4905678901234", name:"島とうふよう 瓶詰め",      sku:"TOFU-YOU-BTL",  category:"食品", unit:"本",    caseQty:4,  cost:980 },
+  { id:"4906789012345", name:"もずくスープ 3食入",       sku:"MOZUKU-SOUP3",  category:"食品", unit:"パック",caseQty:12, cost:180 },
+  { id:"4907890123456", name:"シークワーサー果汁 500ml", sku:"SHIKWASA-500",  category:"飲料", unit:"本",    caseQty:6,  cost:350 },
+  { id:"4908901234567", name:"泡盛飴 詰合せ",            sku:"AWAMORI-MIX",   category:"食品", unit:"袋",    caseQty:5,  cost:430 },
+  { id:"4909012345678", name:"海ぶどう 塩水漬け 100g",  sku:"UMIBUDOU-100",  category:"食品", unit:"パック",caseQty:8,  cost:290 },
+  { id:"4900123456789", name:"紅芋タルト 6個入",         sku:"BENIIMO-TART6", category:"菓子", unit:"箱",    caseQty:10, cost:750 },
+];
+
+const toInventory = p => ({ ...p, cases:"", loose:"", note:"" });
+const calcActual = (cases, loose, caseQty) => {
+  if (cases===""&&loose==="") return null;
+  const c=isNaN(parseInt(cases))?0:parseInt(cases);
+  const l=isNaN(parseInt(loose))?0:parseInt(loose);
+  return c*caseQty+l;
+};
+const isCounted = p => p.cases!==""||p.loose!=="";
+const fmt = n => Math.round(n).toLocaleString("ja-JP");
+const fmtM = ym => { const [y,m]=ym.split("-"); return `${y}年${parseInt(m)}月`; };
+const nowYM = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; };
+const EMPTY_FORM = { id:"", name:"", sku:"", category:"", unit:"個", caseQty:"", cost:"" };
+
+function downloadTemplate() {
+  const csv="JAN（商品ID）,商品名,SKU,カテゴリ,単位,入数/箱,仕入原価(円)\n4901234567890,商品名サンプル,SKU-001,食品,袋,10,500";
+  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="商品登録テンプレート.csv"; a.click();
+}
+
+function parseCSV(text) {
+  const lines=text.replace(/\r\n/g,"\n").replace(/\r/g,"\n").trim().split("\n");
+  if(lines.length<2) return {products:[],errors:["データが空です"]};
+  const errors=[],products=[];
+  for(let i=1;i<lines.length;i++){
+    const cols=lines[i].split(",").map(c=>c.replace(/^"|"$/g,"").trim());
+    const [id,name,sku,category,unit,caseQty,cost]=cols;
+    if(!id||!name){errors.push(`行${i+1}: JANまたは商品名が空`);continue;}
+    if(products.find(p=>p.id===id)){errors.push(`行${i+1}: JAN重複(${id})`);continue;}
+    products.push({id:id.trim(),name:name.trim(),sku:(sku||"").trim(),category:(category||"未分類").trim(),unit:(unit||"個").trim(),caseQty:caseQty&&!isNaN(Number(caseQty))?Number(caseQty):1,cost:cost&&!isNaN(Number(cost))?Number(cost):""});
+  }
+  return {products,errors};
+}
+
+// ── カメラスキャナー ────────────────────────────────────────
+function CameraScanner({ onDetected, onClose }) {
+  const videoRef=useRef(null),quaggaRef=useRef(null),cooldown=useRef(false);
+  const [error,setError]=useState(null),[ready,setReady]=useState(false),[lastCode,setLastCode]=useState(null);
+  useEffect(()=>{
+    let mounted=true;
+    if(!window.Quagga){setError("バーコードライブラリが読み込まれていません");return;}
+    quaggaRef.current=window.Quagga;
+    window.Quagga.init({inputStream:{type:"LiveStream",target:videoRef.current,constraints:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}}},decoder:{readers:["ean_reader","ean_8_reader","code_128_reader"]},locate:true},err=>{
+      if(!mounted)return;
+      if(err){setError("カメラを起動できませんでした。HTTPS環境または安全なコンテキストが必要です");return;}
+      window.Quagga.start();setReady(true);
+    });
+    window.Quagga.onDetected(r=>{
+      if(cooldown.current)return; const code=r?.codeResult?.code; if(!code)return;
+      cooldown.current=true; setLastCode(code); if(navigator.vibrate)navigator.vibrate(80);
+      setTimeout(()=>{cooldown.current=false;},1500); onDetected(code);
+    });
+    return()=>{mounted=false;try{quaggaRef.current?.stop();}catch(_){}};
+  },[onDetected]);
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:300,background:"#000",display:"flex",flexDirection:"column"}}>
+      <div ref={videoRef} style={{flex:1,position:"relative",overflow:"hidden"}}>
+        {ready&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}><div style={{width:"72%",height:80,border:"2px solid rgba(99,102,241,0.9)",borderRadius:8,boxShadow:"0 0 0 9999px rgba(0,0,0,0.45)",position:"relative"}}><div style={{position:"absolute",left:0,right:0,height:2,background:"linear-gradient(90deg,transparent,#6366f1,transparent)",animation:"scanline 1.8s ease-in-out infinite",top:"50%"}}/></div></div>}
+        {!ready&&!error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}><div style={{width:40,height:40,border:"3px solid #6366f1",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/><div style={{color:"#94a3b8",fontSize:14}}>カメラ起動中…</div></div>}
+        {error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}><div style={{color:"#f87171",fontSize:13,textAlign:"center",lineHeight:1.6}}>{error}</div></div>}
+      </div>
+      <div style={{background:"rgba(15,17,23,0.96)",borderTop:"1px solid #2d3158",padding:"16px 20px 28px",display:"flex",flexDirection:"column",gap:10}}>
+        {lastCode&&<div style={{textAlign:"center",fontSize:13,color:"#94a3b8"}}>読み取り: <span style={{color:"#6366f1",fontWeight:700,fontFamily:"monospace"}}>{lastCode}</span></div>}
+        <div style={{textAlign:"center",fontSize:12,color:"#475569"}}>バーコードを枠内に合わせてください</div>
+        <button onClick={onClose} style={{padding:13,borderRadius:10,border:"1px solid #2d3158",background:"#1e2030",color:"#94a3b8",fontSize:15,fontWeight:600,cursor:"pointer"}}>✕ 閉じる</button>
+      </div>
+    </div>
+  );
+}
+
+// ── 月次履歴画面 ─────────────────────────────────────────────
+function HistoryScreen({ history, onClose, onDelete }) {
+  const sorted = [...history].sort((a,b)=>b.ym.localeCompare(a.ym));
+  const exportMonthCSV = (entry) => {
+    const headers=["商品ID","商品名","カテゴリ","単位","仕入原価(円)","実在庫数","棚卸金額(円)"];
+    const rows=entry.items.map(i=>[i.id,i.name,i.category,i.unit,i.cost,i.qty,i.value]);
+    const csv=[headers,...rows].map(r=>r.map(c=>`"${c}"`).join(",")).join("\n");
+    const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`棚卸し_${entry.ym}.csv`; a.click();
+  };
+  const maxVal = Math.max(...sorted.map(e=>e.totalValue),1);
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:200,background:"#0f1117",display:"flex",flexDirection:"column"}}>
+      <div style={{background:"linear-gradient(135deg,#1e2030,#161824)",borderBottom:"1px solid #2d3158",padding:"14px 16px",flexShrink:0,display:"flex",alignItems:"center",gap:10}}>
+        <button onClick={onClose} style={{width:32,height:32,borderRadius:8,border:"1px solid #2d3158",background:"#0f1117",color:"#94a3b8",fontSize:16,cursor:"pointer"}}>←</button>
+        <div>
+          <div style={{fontWeight:700,fontSize:15}}>月次履歴</div>
+          <div style={{fontSize:11,color:"#475569"}}>{history.length}ヶ月分のデータ</div>
+        </div>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:"12px 12px 40px"}}>
+        {history.length===0&&<div style={{textAlign:"center",color:"#475569",padding:60,fontSize:14}}><div style={{fontSize:32,marginBottom:12}}>📭</div>まだ棚卸し履歴がありません。<br/>棚卸しを締めると記録されます。</div>}
+        {sorted.length>1&&(
+          <div style={{background:"#1e2030",borderRadius:12,padding:"14px 16px",marginBottom:16,border:"1px solid #2d3158"}}>
+            <div style={{fontSize:12,color:"#64748b",marginBottom:12,fontWeight:600}}>棚卸金額の推移</div>
+            <div style={{display:"flex",alignItems:"flex-end",gap:6,height:80}}>
+              {sorted.slice().reverse().map((e,i)=>{
+                const h=Math.max(4,Math.round((e.totalValue/maxVal)*76));
+                const isLatest=i===sorted.length-1;
+                return(<div key={e.ym} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:4}}><div style={{width:"100%",height:h,borderRadius:"4px 4px 0 0",background:isLatest?"linear-gradient(180deg,#6366f1,#8b5cf6)":"#2d3158",transition:"height 0.4s"}}/><div style={{fontSize:9,color:"#475569",whiteSpace:"nowrap"}}>{e.ym.slice(5)}月</div></div>);
+              })}
+            </div>
+          </div>
+        )}
+        {sorted.map((entry,i)=>{
+          const prev=sorted[i+1];
+          const diff=prev?entry.totalValue-prev.totalValue:null;
+          return(
+            <div key={entry.ym} style={{background:"#161824",border:"1px solid #1e2535",borderRadius:12,padding:"14px 16px",marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:16,color:"#e2e8f0"}}>{fmtM(entry.ym)}</div>
+                  <div style={{fontSize:11,color:"#475569",marginTop:2}}>{entry.countedItems}/{entry.totalItems}件計上・{entry.date}</div>
+                </div>
+                <div style={{textAlign:"right"}}>
+                  <div style={{fontSize:9,color:"#475569",marginBottom:2}}>棚卸金額</div>
+                  <div style={{fontSize:20,fontWeight:700,color:"#e2e8f0"}}>¥{fmt(entry.totalValue)}</div>
+                  {diff!==null&&<div style={{fontSize:11,fontWeight:600,color:diff>0?"#3b82f6":diff<0?"#ef4444":"#22c55e"}}>{diff===0?"前月比 ±0":`前月比 ${diff>0?"+":""}¥${fmt(diff)}`}</div>}
+                </div>
+              </div>
+              <div style={{background:"#0f1117",borderRadius:8,padding:"8px 10px",marginBottom:10}}>
+                {entry.items.slice(0,5).map(item=>(
+                  <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"3px 0",borderBottom:"1px solid #1a1d28"}}>
+                    <div style={{fontSize:11,color:"#94a3b8",flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.name}</div>
+                    <div style={{fontSize:11,color:"#64748b",marginLeft:8,flexShrink:0}}>{item.qty===""?"-":item.qty} {item.unit}</div>
+                    <div style={{fontSize:11,color:"#a78bfa",marginLeft:8,flexShrink:0,minWidth:60,textAlign:"right"}}>{item.value!==""&&item.value!=null?`¥${fmt(item.value)}`:"—"}</div>
+                  </div>
+                ))}
+                {entry.items.length>5&&<div style={{fontSize:10,color:"#334155",textAlign:"center",paddingTop:4}}>他 {entry.items.length-5}件</div>}
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>exportMonthCSV(entry)} style={{flex:1,padding:"7px 0",borderRadius:8,border:"1px solid #2d3158",background:"#1e2030",color:"#94a3b8",fontSize:12,fontWeight:600,cursor:"pointer"}}>⬇️ CSVダウンロード</button>
+                <button onClick={()=>{if(window.confirm(`${fmtM(entry.ym)}の履歴を削除しますか？`))onDelete(entry.ym);}} style={{padding:"7px 12px",borderRadius:8,border:"1px solid #2d1515",background:"#1a0d0d",color:"#7f1d1d",fontSize:11,cursor:"pointer"}}>削除</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── 設定画面 ────────────────────────────────────────────────
+function SettingsScreen({ products, onProductsChange, onSettingsSave, onClose }) {
+  const [tab,setTab]=useState("products");
+  const [settingsDraft,setSettingsDraft]=useState(products.map(p=>({id:p.id,caseQty:String(p.caseQty??""),cost:String(p.cost??"")})));
+  const [settingsSaved,setSettingsSaved]=useState(false);
+  const [prodSearch,setProdSearch]=useState("");
+  const [editingId,setEditingId]=useState(null);
+  const [form,setForm]=useState(EMPTY_FORM);
+  const [formError,setFormError]=useState("");
+  const [importResult,setImportResult]=useState(null);
+  const [showImportConfirm,setShowImportConfirm]=useState(null);
+  const fileRef=useRef(null);
+
+  useEffect(()=>{setSettingsDraft(products.map(p=>({id:p.id,caseQty:String(p.caseQty??""),cost:String(p.cost??"")})));},[products]);
+
+  const filteredProds=products.filter(p=>p.name.includes(prodSearch)||p.id.includes(prodSearch)||p.sku.toLowerCase().includes(prodSearch.toLowerCase()));
+
+  const validateForm=(f,isNew)=>{
+    if(!f.id.trim())return"JANコードは必須です";
+    if(!f.name.trim())return"商品名は必須です";
+    if(isNew&&products.find(p=>p.id===f.id.trim()))return"このJANコードはすでに登録されています";
+    if(f.caseQty!==""&&(isNaN(Number(f.caseQty))||Number(f.caseQty)<=0))return"入数は1以上の数値を入力してください";
+    return"";
+  };
+
+  const handleAddOrUpdate=()=>{
+    const isNew=editingId==="new";
+    const err=validateForm(form,isNew); if(err){setFormError(err);return;}
+    const product={id:form.id.trim(),name:form.name.trim(),sku:form.sku.trim(),category:form.category.trim()||"未分類",unit:form.unit.trim()||"個",caseQty:form.caseQty!==""?Number(form.caseQty):1,cost:form.cost!==""?Number(form.cost):""};
+    if(isNew) onProductsChange([...products,product].map(toInventory));
+    else onProductsChange(products.map(p=>p.id===editingId?{...p,...product,cases:p.cases,loose:p.loose,note:p.note}:p));
+    setEditingId(null);setForm(EMPTY_FORM);setFormError("");
+  };
+
+  const handleDelete=(id)=>{
+    if(!window.confirm("この商品を削除しますか？"))return;
+    onProductsChange(products.filter(p=>p.id!==id));
+  };
+
+  const handleFileChange=(e)=>{
+    const file=e.target.files[0]; if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{const{products:parsed,errors}=parseCSV(ev.target.result);setShowImportConfirm({parsed,errors});};
+    reader.readAsText(file,"UTF-8"); e.target.value="";
+  };
+
+  const handleImportConfirm=(mode)=>{
+    const{parsed}=showImportConfirm; let added=0,skipped=0,next;
+    if(mode==="replace"){next=parsed.map(toInventory);added=parsed.length;}
+    else{const existing=[...products];parsed.forEach(p=>{const idx=existing.findIndex(e=>e.id===p.id);if(idx>=0){existing[idx]={...existing[idx],...p};skipped++;}else{existing.push(toInventory(p));added++;}});next=existing;}
+    onProductsChange(next);setImportResult({added,skipped,errors:showImportConfirm.errors});setShowImportConfirm(null);
+  };
+
+  const handleSettingsSaveInternal=()=>{
+    onSettingsSave(settingsDraft);setSettingsSaved(true);setTimeout(()=>setSettingsSaved(false),1500);
+  };
+
+  if(editingId!==null){
+    const isNew=editingId==="new";
+    return(
+      <div style={{position:"fixed",inset:0,zIndex:210,background:"#0f1117",display:"flex",flexDirection:"column"}}>
+        <div style={{background:"linear-gradient(135deg,#1e2030,#161824)",borderBottom:"1px solid #2d3158",padding:"14px 16px",flexShrink:0,display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>{setEditingId(null);setForm(EMPTY_FORM);setFormError("");}} style={{width:32,height:32,borderRadius:8,border:"1px solid #2d3158",background:"#0f1117",color:"#94a3b8",fontSize:16,cursor:"pointer"}}>←</button>
+          <div style={{fontWeight:700,fontSize:15}}>{isNew?"商品を追加":"商品を編集"}</div>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:"16px"}}>
+          {[{key:"id",label:"JANコード *",placeholder:"例: 4901234567890",type:"text"},{key:"name",label:"商品名 *",placeholder:"例: 熱中飴 1kg",type:"text"},{key:"sku",label:"SKU",placeholder:"例: SKU-001",type:"text"},{key:"category",label:"カテゴリ",placeholder:"例: 食品",type:"text"},{key:"unit",label:"単位",placeholder:"例: 袋・本・個",type:"text"},{key:"caseQty",label:"入数/箱",placeholder:"例: 10",type:"number"},{key:"cost",label:"仕入原価（円）",placeholder:"例: 500",type:"number"}].map(f=>(
+            <div key={f.key} style={{marginBottom:14}}>
+              <div style={{fontSize:12,color:"#64748b",marginBottom:5}}>{f.label}</div>
+              <input type={f.type} value={form[f.key]} placeholder={f.placeholder} onChange={e=>setForm(prev=>({...prev,[f.key]:e.target.value}))} readOnly={!isNew&&f.key==="id"} style={{width:"100%",padding:"10px 12px",borderRadius:8,background:"#1e2030",border:"1px solid #2d3158",color:(!isNew&&f.key==="id")?"#475569":"#e2e8f0",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+            </div>
+          ))}
+          {formError&&<div style={{color:"#f87171",fontSize:13,marginBottom:10,padding:"8px 12px",background:"#200d0d",borderRadius:8,border:"1px solid #7f1d1d"}}>{formError}</div>}
+        </div>
+        <div style={{padding:"12px 16px 28px",borderTop:"1px solid #2d3158",flexShrink:0}}>
+          <button onClick={handleAddOrUpdate} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer"}}>{isNew?"＋ 追加する":"✓ 更新する"}</button>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{position:"fixed",inset:0,zIndex:200,background:"#0f1117",display:"flex",flexDirection:"column"}}>
+      <div style={{background:"linear-gradient(135deg,#1e2030,#161824)",borderBottom:"1px solid #2d3158",padding:"14px 16px",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <button onClick={onClose} style={{width:32,height:32,borderRadius:8,border:"1px solid #2d3158",background:"#0f1117",color:"#94a3b8",fontSize:16,cursor:"pointer"}}>←</button>
+            <div style={{fontWeight:700,fontSize:15}}>設定</div>
+          </div>
+          {tab==="master"&&<button onClick={handleSettingsSaveInternal} style={{padding:"7px 16px",borderRadius:8,border:"none",cursor:"pointer",fontSize:13,fontWeight:700,background:settingsSaved?"#166534":"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff"}}>{settingsSaved?"✓ 保存済":"保存"}</button>}
+        </div>
+        <div style={{display:"flex",gap:0,background:"#0f1117",borderRadius:9,padding:3}}>
+          {[{k:"products",l:"📋 商品管理"},{k:"master",l:"⚙️ 入数・原価"}].map(t=>(
+            <button key={t.k} onClick={()=>setTab(t.k)} style={{flex:1,padding:"7px 0",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,background:tab===t.k?"#1e2030":"transparent",color:tab===t.k?"#e2e8f0":"#475569"}}>{t.l}</button>
+          ))}
+        </div>
+      </div>
+
+      {tab==="products"&&(
+        <React.Fragment>
+          <div style={{padding:"10px 12px",borderBottom:"1px solid #1e2535",flexShrink:0}}>
+            {importResult&&<div style={{marginBottom:8,padding:"8px 12px",borderRadius:8,background:"#0d2010",border:"1px solid #166534",fontSize:12,color:"#4ade80"}}>✓ {importResult.added}件追加・{importResult.skipped}件更新{importResult.errors.length>0&&<span style={{color:"#f59e0b"}}> / {importResult.errors.length}件エラー</span>}<button onClick={()=>setImportResult(null)} style={{marginLeft:8,background:"none",border:"none",color:"#475569",cursor:"pointer",fontSize:12}}>✕</button></div>}
+            <div style={{display:"flex",gap:8,marginBottom:8}}>
+              <div style={{position:"relative",flex:1}}><span style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",fontSize:12}}>🔍</span><input value={prodSearch} onChange={e=>setProdSearch(e.target.value)} placeholder="商品名・JAN・SKUで検索" style={{width:"100%",padding:"7px 8px 7px 26px",borderRadius:8,background:"#1e2030",border:"1px solid #2d3158",color:"#e2e8f0",fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
+              <button onClick={()=>{setForm(EMPTY_FORM);setFormError("");setEditingId("new");}} style={{padding:"7px 12px",borderRadius:8,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>＋ 追加</button>
+            </div>
+            <div style={{display:"flex",gap:8}}>
+              <input ref={fileRef} type="file" accept=".csv" onChange={handleFileChange} style={{display:"none"}}/>
+              <button onClick={()=>fileRef.current.click()} style={{flex:1,padding:"7px 0",borderRadius:8,border:"1px solid #2d3158",background:"#1e2030",color:"#94a3b8",fontSize:12,fontWeight:600,cursor:"pointer"}}>📂 CSVインポート</button>
+              <button onClick={downloadTemplate} style={{flex:1,padding:"7px 0",borderRadius:8,border:"1px solid #2d3158",background:"#1e2030",color:"#94a3b8",fontSize:12,fontWeight:600,cursor:"pointer"}}>⬇️ テンプレートDL</button>
+            </div>
+            <div style={{marginTop:6,fontSize:10,color:"#334155",textAlign:"center"}}>{products.length}件登録済み</div>
+          </div>
+          <div style={{flex:1,overflowY:"auto",padding:"6px 12px 32px"}}>
+            {filteredProds.length===0&&<div style={{textAlign:"center",color:"#475569",padding:30,fontSize:13}}>商品が見つかりません</div>}
+            {filteredProds.map(p=>(
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:8,padding:"10px 4px",borderBottom:"1px solid #1a1d28"}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,color:"#e2e8f0",marginBottom:1}}>{p.name}</div>
+                  <div style={{fontSize:10,color:"#475569",display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <span style={{fontFamily:"monospace"}}>{p.id}</span>
+                    <span style={{background:"#1e2535",padding:"0 4px",borderRadius:3}}>{p.category}</span>
+                    <span style={{color:"#4ade80"}}>入数{p.caseQty}</span>
+                    {p.cost!==""&&<span style={{color:"#a78bfa"}}>¥{fmt(Number(p.cost))}</span>}
+                  </div>
+                </div>
+                <button onClick={()=>{setForm({id:p.id,name:p.name,sku:p.sku||"",category:p.category,unit:p.unit,caseQty:String(p.caseQty??""),cost:String(p.cost??"")});setFormError("");setEditingId(p.id);}} style={{padding:"5px 10px",borderRadius:6,border:"1px solid #334155",background:"#1e2535",color:"#94a3b8",fontSize:11,cursor:"pointer"}}>編集</button>
+                <button onClick={()=>handleDelete(p.id)} style={{padding:"5px 10px",borderRadius:6,border:"1px solid #2d1515",background:"#1a0d0d",color:"#7f1d1d",fontSize:11,cursor:"pointer"}}>削除</button>
+              </div>
+            ))}
+          </div>
+        </React.Fragment>
+      )}
+
+      {tab==="master"&&(
+        <React.Fragment>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 80px 80px",gap:8,padding:"8px 16px",background:"#0f1117",borderBottom:"1px solid #1e2535",fontSize:10,color:"#475569",flexShrink:0}}>
+            <div>商品名</div><div style={{textAlign:"center"}}>入数/箱</div><div style={{textAlign:"center"}}>原価(円)</div>
+          </div>
+          <div style={{flex:1,overflowY:"auto",padding:"6px 12px 32px"}}>
+            {products.map(p=>{
+              const d=settingsDraft.find(x=>x.id===p.id)||{caseQty:"",cost:""};
+              const caseOk=d.caseQty!==""&&!isNaN(Number(d.caseQty))&&Number(d.caseQty)>0;
+              const costOk=d.cost!==""&&!isNaN(Number(d.cost));
+              return(
+                <div key={p.id} style={{display:"grid",gridTemplateColumns:"1fr 80px 80px",gap:8,alignItems:"center",padding:"10px 4px",borderBottom:"1px solid #1a1d28"}}>
+                  <div><div style={{fontSize:13,fontWeight:600,color:"#e2e8f0",marginBottom:1}}>{p.name}</div><div style={{fontSize:10,color:"#475569"}}>{p.unit} 単位</div></div>
+                  <input type="number" min={1} value={d.caseQty} placeholder="—" onChange={e=>setSettingsDraft(prev=>prev.map(x=>x.id===p.id?{...x,caseQty:e.target.value}:x))} style={{width:"100%",padding:"8px 4px",textAlign:"center",background:"#0f1117",border:`1px solid ${caseOk?"#6366f1":"#ef4444"}`,borderRadius:7,color:"#e2e8f0",fontSize:15,fontWeight:700,outline:"none",boxSizing:"border-box"}}/>
+                  <div style={{position:"relative"}}><span style={{position:"absolute",left:5,top:"50%",transform:"translateY(-50%)",fontSize:10,color:"#475569"}}>¥</span><input type="number" min={0} value={d.cost} placeholder="—" onChange={e=>setSettingsDraft(prev=>prev.map(x=>x.id===p.id?{...x,cost:e.target.value}:x))} style={{width:"100%",padding:"8px 4px 8px 14px",background:"#0f1117",border:`1px solid ${costOk?"#8b5cf6":"#2d3158"}`,borderRadius:7,color:"#e2e8f0",fontSize:13,fontWeight:700,outline:"none",boxSizing:"border-box"}}/></div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{padding:"12px 16px 28px",borderTop:"1px solid #2d3158",flexShrink:0}}>
+            <button onClick={handleSettingsSaveInternal} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:settingsSaved?"#166534":"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer"}}>{settingsSaved?"✓ 保存しました":"✓ 設定を保存"}</button>
+          </div>
+        </React.Fragment>
+      )}
+
+      {showImportConfirm&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"flex-end",zIndex:300}}>
+          <div style={{width:"100%",background:"#1e2030",borderRadius:"16px 16px 0 0",padding:24,border:"1px solid #2d3158"}}>
+            <div style={{fontWeight:700,fontSize:16,marginBottom:6}}>CSVインポート確認</div>
+            <div style={{fontSize:13,color:"#64748b",marginBottom:4}}>{showImportConfirm.parsed.length}件を読み込みました</div>
+            {showImportConfirm.errors.length>0&&<div style={{marginBottom:10,padding:"8px 10px",background:"#1a1500",borderRadius:8,border:"1px solid #713f12"}}>{showImportConfirm.errors.slice(0,3).map((e,i)=><div key={i} style={{fontSize:11,color:"#f59e0b"}}>{e}</div>)}{showImportConfirm.errors.length>3&&<div style={{fontSize:11,color:"#f59e0b"}}>他 {showImportConfirm.errors.length-3}件</div>}</div>}
+            <button onClick={()=>handleImportConfirm("merge")} style={{width:"100%",marginBottom:8,padding:13,borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontWeight:700,fontSize:14,cursor:"pointer"}}>追加・上書き（既存データを保持）</button>
+            <button onClick={()=>handleImportConfirm("replace")} style={{width:"100%",marginBottom:8,padding:13,borderRadius:10,border:"1px solid #7f1d1d",background:"#1a0d0d",color:"#f87171",fontWeight:700,fontSize:14,cursor:"pointer"}}>全置き換え（既存データをすべて削除）</button>
+            <button onClick={()=>setShowImportConfirm(null)} style={{width:"100%",padding:12,borderRadius:10,border:"1px solid #2d3158",background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer"}}>キャンセル</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 月次締めモーダル ────────────────────────────────────────
+function CloseMonthModal({ products, ym, onConfirm, onClose }) {
+  const [targetYm, setTargetYm] = useState(ym);
+  const getActual  = p => calcActual(p.cases,p.loose,p.caseQty);
+  const getCost    = p => (p.cost===""||isNaN(Number(p.cost)))?null:Number(p.cost);
+  const totalVal   = products.reduce((s,p)=>{const a=getActual(p);const c=getCost(p);return(a!==null&&c!==null)?s+a*c:s;},0);
+  const counted    = products.filter(p=>isCounted(p)).length;
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"flex-end",zIndex:250}}>
+      <div style={{width:"100%",background:"#1e2030",borderRadius:"16px 16px 0 0",padding:24,border:"1px solid #2d3158"}}>
+        <div style={{fontWeight:700,fontSize:17,marginBottom:4}}>今月の棚卸しを締める</div>
+        <div style={{fontSize:13,color:"#64748b",marginBottom:16}}>ブラウザに保存 ＋ CSVをダウンロードします</div>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:12,color:"#64748b",marginBottom:6}}>対象月</div>
+          <input type="month" value={targetYm} onChange={e=>setTargetYm(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:8,background:"#0f1117",border:"1px solid #2d3158",color:"#e2e8f0",fontSize:15,outline:"none",boxSizing:"border-box"}}/>
+        </div>
+        <div style={{background:"#0f1117",borderRadius:10,padding:"12px 16px",border:"1px solid #2d3158",marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:12,color:"#64748b"}}>棚卸金額合計</span><span style={{fontSize:18,fontWeight:700,color:"#e2e8f0"}}>¥{fmt(totalVal)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,color:"#64748b"}}>計上済み商品</span><span style={{fontSize:13,fontWeight:600,color:counted===products.length?"#22c55e":"#f59e0b"}}>{counted} / {products.length} 件</span></div>
+        </div>
+        {counted<products.length&&<div style={{fontSize:12,color:"#f59e0b",marginBottom:14,padding:"8px 10px",background:"#1a1500",borderRadius:8,border:"1px solid #713f12"}}>⚠ {products.length-counted}件が未計上です。このまま締めると未計上は空欄で保存されます。</div>}
+        <button onClick={()=>onConfirm(targetYm)} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontWeight:700,fontSize:15,cursor:"pointer",marginBottom:8}}>✓ 締めてCSVもダウンロード</button>
+        <button onClick={onClose} style={{width:"100%",padding:12,borderRadius:10,border:"1px solid #2d3158",background:"transparent",color:"#64748b",fontSize:14,cursor:"pointer"}}>キャンセル</button>
+      </div>
+    </div>
+  );
+}
+
+// ── メイン ──────────────────────────────────────────────────
+function InventoryTool() {
+  const [products,setProducts]       = useState(()=>{ const saved=sGet(STORE_PRODUCTS); return (saved&&saved.length>0)?saved:INIT_PRODUCTS.map(toInventory); });
+  const [history,setHistory]         = useState(()=>sGet(STORE_HISTORY)||[]);
+  const [screen,setScreen]           = useState("main");
+  const [search,setSearch]           = useState("");
+  const [category,setCategory]       = useState("すべて");
+  const [filter,setFilter]           = useState("all");
+  const [showCamera,setShowCamera]   = useState(false);
+  const [flashId,setFlashId]         = useState(null);
+  const [activeId,setActiveId]       = useState(null);
+  const [showCloseMonth,setShowCloseMonth] = useState(false);
+  const [toast,setToast]             = useState(null);
+  const toastTimer = useRef(null);
+
+  useEffect(()=>{sSet(STORE_PRODUCTS,products);},[products]);
+  useEffect(()=>{sSet(STORE_HISTORY,history);},[history]);
+
+  const categories = ["すべて",...new Set(products.map(p=>p.category))];
+  const getActual   = p => calcActual(p.cases,p.loose,p.caseQty);
+  const getCost     = p => (p.cost===""||p.cost===undefined||isNaN(Number(p.cost)))?null:Number(p.cost);
+  const getStockVal = p => { const a=getActual(p);const c=getCost(p);return(a!==null&&c!==null)?a*c:null; };
+
+  const totalStockVal = products.reduce((s,p)=>{const v=getStockVal(p);return v!==null?s+v:s;},0);
+  const valuedCount   = products.filter(p=>isCounted(p)&&getCost(p)!==null).length;
+  const countedCount  = products.filter(p=>isCounted(p)).length;
+  const progress      = Math.round((countedCount/products.length)*100)||0;
+
+  const handleSettingsSave=(draft)=>{
+    setProducts(prev=>prev.map(p=>{
+      const d=draft.find(x=>x.id===p.id);if(!d)return p;
+      return{...p,caseQty:d.caseQty!==""&&!isNaN(Number(d.caseQty))?Number(d.caseQty):p.caseQty,cost:d.cost!==""&&!isNaN(Number(d.cost))?Number(d.cost):p.cost};
+    }));
+    showToast("設定を保存しました ✓",true);
+  };
+
+  const handleCloseMonth = (ym) => {
+    const items = products.map(p=>{
+      const qty=getActual(p); const cost=getCost(p);
+      return{id:p.id,name:p.name,category:p.category,unit:p.unit,cost:cost??"",qty:qty??"",value:(qty!==null&&cost!==null)?qty*cost:""};
+    });
+    const entry={ym,date:new Date().toLocaleDateString("ja-JP"),totalValue:totalStockVal,countedItems:countedCount,totalItems:products.length,items};
+    const existing = history.filter(h=>h.ym!==ym);
+    const newHistory = [...existing,entry].sort((a,b)=>a.ym.localeCompare(b.ym));
+    setHistory(newHistory);
+
+    const headers=["商品ID","商品名","カテゴリ","単位","仕入原価(円)","実在庫数","棚卸金額(円)"];
+    const rows=entry.items.map(i=>[i.id,i.name,i.category,i.unit,i.cost,i.qty,i.value]);
+    const csv=[headers,...rows].map(r=>r.map(c=>`"${c}"`).join(",")).join("\n");
+    const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`棚卸し_${ym}.csv`; a.click();
+
+    setShowCloseMonth(false);
+    showToast(`${fmtM(ym)} を締めました ✓`,true);
+    setProducts(prev=>prev.map(p=>({...p,cases:"",loose:"",note:""})));
+  };
+
+  const handleHistoryDelete = (ym) => setHistory(prev=>prev.filter(h=>h.ym!==ym));
+
+  const filtered = products.filter(p=>{
+    const matchSearch=p.name.includes(search)||p.sku.toLowerCase().includes(search.toLowerCase())||p.id.includes(search);
+    const matchCat=category==="すべて"||p.category===category;
+    const matchFilter=filter==="all"?true:filter==="uncounted"?!isCounted(p):filter==="nocost"?getCost(p)===null:true;
+    return matchSearch&&matchCat&&matchFilter;
+  });
+
+  const updateField=(id,field,val)=>setProducts(prev=>prev.map(p=>p.id===id?{...p,[field]:val}:p));
+
+  const showToast=(msg,success)=>{
+    clearTimeout(toastTimer.current);setToast({msg,success});
+    toastTimer.current=setTimeout(()=>setToast(null),3000);
+  };
+
+  const handleDetected=useCallback((code)=>{
+    const found=products.find(p=>p.id===code||p.sku===code);
+    if(found){setFlashId(found.id);setActiveId(found.id);setTimeout(()=>setFlashId(null),1000);setFilter("all");setSearch("");setShowCamera(false);showToast(`✓ ${found.name}`,true);setTimeout(()=>document.getElementById(`row-${found.id}`)?.scrollIntoView({behavior:"smooth",block:"center"}),300);}
+    else showToast(`未登録: ${code}`,false);
+  },[products]);
+
+  const numBtn=(onClick,label)=>(
+    <button onClick={onClick} style={{width:34,height:40,borderRadius:7,border:"1px solid #2d3158",background:"#0f1117",color:"#64748b",fontSize:20,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{label}</button>
+  );
+
+  if(screen==="settings") return <SettingsScreen products={products} onProductsChange={setProducts} onSettingsSave={handleSettingsSave} onClose={()=>setScreen("main")}/>;
+  if(screen==="history")  return <HistoryScreen history={history} onClose={()=>setScreen("main")} onDelete={handleHistoryDelete}/>;
+
+  return(
+    <div style={{background:"#0f1117",minHeight:"100vh",color:"#e2e8f0"}}>
+      {showCamera&&<CameraScanner onDetected={handleDetected} onClose={()=>setShowCamera(false)}/>}
+      {showCloseMonth&&<CloseMonthModal products={products} ym={nowYM()} onConfirm={handleCloseMonth} onClose={()=>setShowCloseMonth(false)}/>}
+
+      {toast&&(
+        <div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:400,padding:"10px 20px",borderRadius:10,background:toast.success?"#0d2010":"#200d0d",border:`1px solid ${toast.success?"#166534":"#7f1d1d"}`,color:toast.success?"#4ade80":"#f87171",fontSize:13,fontWeight:600,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
+          {toast.msg}
+        </div>
+      )}
+
+      <div style={{background:"linear-gradient(135deg,#1e2030,#161824)",borderBottom:"1px solid #2d3158",padding:"14px 16px",position:"sticky",top:0,zIndex:100}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:34,height:34,borderRadius:8,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17}}>📦</div>
+            <div>
+              <div style={{fontWeight:700,fontSize:15}}>棚卸しツール</div>
+              <div style={{fontSize:11,color:"#475569"}}>{fmtM(nowYM())} 実施中</div>
+            </div>
+          </div>
+          <div style={{display:"flex",gap:6}}>
+            <button onClick={()=>setScreen("history")} style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,background:"#1e2030",color:"#94a3b8",border:"1px solid #2d3158",position:"relative"}}>📅 履歴{history.length>0&&<span style={{position:"absolute",top:-4,right:-4,background:"#6366f1",color:"#fff",fontSize:9,borderRadius:99,padding:"1px 4px",fontWeight:700}}>{history.length}</span>}</button>
+            <button onClick={()=>setScreen("settings")} style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,background:"#1e2030",color:"#94a3b8",border:"1px solid #2d3158"}}>⚙️</button>
+            <button onClick={()=>setShowCamera(true)} style={{padding:"7px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:15}}>📷</span>スキャン</button>
+          </div>
+        </div>
+
+        <div style={{background:"#0f1117",borderRadius:10,padding:"12px 16px",border:"1px solid #2d3158",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:11,color:"#475569",marginBottom:4}}>棚卸金額合計</div>
+            <div style={{fontSize:24,fontWeight:700,color:"#e2e8f0",letterSpacing:"-0.5px"}}>¥{fmt(totalStockVal)}</div>
+            <div style={{fontSize:10,color:"#475569",marginTop:2}}>{valuedCount}/{products.length}件計上</div>
+          </div>
+          <button onClick={()=>setShowCloseMonth(true)} style={{padding:"10px 16px",borderRadius:10,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#166534,#14532d)",color:"#4ade80",fontWeight:700,fontSize:13,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+            <span style={{fontSize:18}}>✓</span><span>今月を締める</span>
+          </button>
+        </div>
+
+        <div style={{marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#64748b",marginBottom:3}}>
+            <span>数量入力: {countedCount} / {products.length} 件</span><span>{progress}%</span>
+          </div>
+          <div style={{background:"#1e2030",borderRadius:99,height:5,overflow:"hidden"}}>
+            <div style={{height:"100%",borderRadius:99,background:"linear-gradient(90deg,#6366f1,#8b5cf6)",width:`${progress}%`,transition:"width 0.4s"}}/>
+          </div>
+        </div>
+
+        <div style={{position:"relative",marginBottom:8}}>
+          <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:13}}>🔍</span>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="商品名・SKU・JANコードで検索" style={{width:"100%",padding:"8px 8px 8px 30px",borderRadius:8,background:"#1e2030",border:"1px solid #2d3158",color:"#e2e8f0",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+        </div>
+
+        <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:2}}>
+          {categories.map(c=>(<button key={c} onClick={()=>setCategory(c)} style={{padding:"4px 9px",borderRadius:99,whiteSpace:"nowrap",cursor:"pointer",background:category===c?"#6366f1":"#1e2030",color:category===c?"#fff":"#64748b",border:`1px solid ${category===c?"#6366f1":"#2d3158"}`,fontSize:11,fontWeight:600}}>{c}</button>))}
+          <div style={{width:1,background:"#2d3158",margin:"0 3px"}}/>
+          {[{k:"all",l:"全件"},{k:"uncounted",l:"未計上"},{k:"nocost",l:"原価未設定"}].map(f=>(<button key={f.k} onClick={()=>setFilter(f.k)} style={{padding:"4px 9px",borderRadius:99,whiteSpace:"nowrap",cursor:"pointer",background:filter===f.k?"#334155":"transparent",color:filter===f.k?"#e2e8f0":"#475569",border:`1px solid ${filter===f.k?"#475569":"transparent"}`,fontSize:11,fontWeight:600}}>{f.l}</button>))}
+        </div>
+      </div>
+
+      <div style={{padding:"10px 10px 80px"}}>
+        {filtered.length===0&&<div style={{textAlign:"center",color:"#475569",padding:40,fontSize:14}}>該当する商品がありません</div>}
+        {filtered.map(p=>{
+          const actual=getActual(p),counted=isCounted(p),cost=getCost(p),stockVal=getStockVal(p);
+          const isFlash=flashId===p.id,isActive=activeId===p.id;
+          return(
+            <div id={`row-${p.id}`} key={p.id} onClick={()=>setActiveId(isActive?null:p.id)} style={{background:isFlash?"linear-gradient(135deg,#1a2040,#2d1f5e)":isActive?"#1e2030":"#161824",border:`1px solid ${isFlash?"#6366f1":isActive?"#334155":"#1e2535"}`,borderRadius:12,padding:"12px 14px",marginBottom:8,transition:"all 0.25s"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:14,marginBottom:3}}>{p.name}</div>
+                  <div style={{fontSize:11,color:"#475569",display:"flex",flexWrap:"wrap",gap:"4px 8px"}}>
+                    <span style={{fontFamily:"monospace",fontSize:10}}>{p.id}</span>
+                    <span style={{background:"#1e2535",padding:"1px 5px",borderRadius:4,color:"#64748b",fontSize:10}}>{p.category}</span>
+                    <span style={{background:"#0f2010",padding:"1px 5px",borderRadius:4,color:"#4ade80",fontSize:10}}>入数 {p.caseQty}{p.unit}/箱</span>
+                    {cost!==null&&<span style={{background:"#1a0f2e",padding:"1px 5px",borderRadius:4,color:"#a78bfa",fontSize:10}}>¥{fmt(cost)}/{p.unit}</span>}
+                  </div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontSize:9,color:"#475569",marginBottom:2}}>棚卸金額</div>
+                  <div style={{fontSize:16,fontWeight:700,color:stockVal!==null?"#e2e8f0":"#2d3158"}}>{stockVal!==null?`¥${fmt(stockVal)}`:"—"}</div>
+                  {actual!==null&&<div style={{fontSize:10,color:"#475569"}}>{actual} {p.unit}</div>}
+                </div>
+              </div>
+
+              <div style={{marginTop:10,display:"flex",gap:10}} onClick={e=>e.stopPropagation()}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:10,color:"#64748b",marginBottom:5,display:"flex",justifyContent:"space-between"}}><span>📦 段ボール（箱）</span><span style={{color:"#334155"}}>×{p.caseQty}{p.unit}</span></div>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                    {numBtn(()=>updateField(p.id,"cases",String(Math.max(0,(parseInt(p.cases)||0)-1))),"−")}
+                    <input type="number" min={0} value={p.cases} onChange={e=>updateField(p.id,"cases",e.target.value)} placeholder="0" style={{flex:1,padding:"7px 4px",textAlign:"center",background:"#0f1117",border:`2px solid ${p.cases!==""?"#6366f1":"#2d3158"}`,borderRadius:8,color:"#e2e8f0",fontSize:20,fontWeight:700,outline:"none"}}/>
+                    {numBtn(()=>updateField(p.id,"cases",String((parseInt(p.cases)||0)+1)),"＋")}
+                  </div>
+                  {p.cases!==""&&<div style={{fontSize:10,color:"#475569",marginTop:3,textAlign:"center"}}>= {(parseInt(p.cases)||0)*p.caseQty} {p.unit}</div>}
+                </div>
+                <div style={{display:"flex",alignItems:"center",paddingTop:18,color:"#2d3158",fontSize:22}}>＋</div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:10,color:"#64748b",marginBottom:5}}>🔓 バラ（{p.unit}）</div>
+                  <div style={{display:"flex",alignItems:"center",gap:5}}>
+                    {numBtn(()=>updateField(p.id,"loose",String(Math.max(0,(parseInt(p.loose)||0)-1))),"−")}
+                    <input type="number" min={0} value={p.loose} onChange={e=>updateField(p.id,"loose",e.target.value)} placeholder="0" style={{flex:1,padding:"7px 4px",textAlign:"center",background:"#0f1117",border:`2px solid ${p.loose!==""?"#8b5cf6":"#2d3158"}`,borderRadius:8,color:"#e2e8f0",fontSize:20,fontWeight:700,outline:"none"}}/>
+                    {numBtn(()=>updateField(p.id,"loose",String((parseInt(p.loose)||0)+1)),"＋")}
+                  </div>
+                  {p.loose!==""&&<div style={{fontSize:10,color:"#475569",marginTop:3,textAlign:"center"}}>{p.loose} {p.unit}</div>}
+                </div>
+              </div>
+
+              {counted&&(
+                <div style={{marginTop:10,padding:"9px 12px",borderRadius:8,background:"#0a0d14",border:"1px solid #1e2535",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{fontSize:12,color:"#64748b"}}>{p.cases||0}箱×{p.caseQty} ＋ {p.loose||0}バラ<span style={{color:"#475569",margin:"0 6px"}}>=</span><span style={{fontWeight:700,fontSize:15,color:"#e2e8f0"}}>{actual} {p.unit}</span></div>
+                  {stockVal!==null&&<div style={{fontWeight:700,fontSize:14,color:"#6366f1"}}>¥{fmt(stockVal)}</div>}
+                </div>
+              )}
+
+              {isActive&&(
+                <div style={{marginTop:8}} onClick={e=>e.stopPropagation()}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                    <div>
+                      <div style={{fontSize:10,color:"#64748b",marginBottom:4}}>入数/箱（{p.unit}）</div>
+                      <input type="number" min={1} value={p.caseQty} onChange={e=>updateField(p.id,"caseQty",e.target.value===""?"":Number(e.target.value))} placeholder="例: 10" style={{width:"100%",padding:"7px 8px",textAlign:"center",background:"#0f1117",border:`1px solid ${p.caseQty?"#4ade80":"#ef4444"}`,borderRadius:7,color:"#e2e8f0",fontSize:15,fontWeight:700,outline:"none",boxSizing:"border-box"}}/>
+                    </div>
+                    <div>
+                      <div style={{fontSize:10,color:"#64748b",marginBottom:4}}>仕入原価（円/{p.unit}）</div>
+                      <div style={{position:"relative"}}><span style={{position:"absolute",left:7,top:"50%",transform:"translateY(-50%)",fontSize:11,color:"#475569"}}>¥</span><input type="number" min={0} value={p.cost??""} onChange={e=>updateField(p.id,"cost",e.target.value===""?"":Number(e.target.value))} placeholder="未設定" style={{width:"100%",padding:"7px 8px 7px 20px",background:"#0f1117",border:`1px solid ${cost!==null?"#a78bfa":"#2d3158"}`,borderRadius:7,color:"#e2e8f0",fontSize:15,fontWeight:700,outline:"none",boxSizing:"border-box"}}/></div>
+                    </div>
+                  </div>
+                  <input value={p.note} onChange={e=>updateField(p.id,"note",e.target.value)} placeholder="備考（破損・移動など）" style={{width:"100%",padding:"7px 10px",borderRadius:7,background:"#0f1117",border:"1px solid #2d3158",color:"#e2e8f0",fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:6}}/>
+                  <button onClick={()=>{updateField(p.id,"cases","");updateField(p.id,"loose","");updateField(p.id,"note","");}} style={{width:"100%",padding:6,borderRadius:7,border:"1px solid #2d1515",background:"#1a0d0d",color:"#7f1d1d",fontSize:11,cursor:"pointer"}}>リセット（数量・備考）</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<InventoryTool/>);
+</script>
+</body>
+</html>
