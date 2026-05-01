@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<meta name="theme-color" content="#0f1117" />
+<meta name="theme-color" content="#f1f5f9" />
 <title>棚卸しツール</title>
 <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -11,7 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
 <style>
   * { -webkit-tap-highlight-color: transparent; }
-  body { margin: 0; background: #0f1117; font-family: 'Noto Sans JP','BIZ UDGothic',-apple-system,BlinkMacSystemFont,sans-serif; }
+  body { margin: 0; background: #f1f5f9; font-family: 'Noto Sans JP','BIZ UDGothic',-apple-system,BlinkMacSystemFont,sans-serif; color: #1e293b; }
   input[type=number]::-webkit-outer-spin-button,
   input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
   input[type=number] { -moz-appearance:textfield; }
@@ -52,6 +52,15 @@ const fmtAgo = (ts) => {
   if (sec<3600) return `${Math.floor(sec/60)}分前`;
   if (sec<86400) return `${Math.floor(sec/3600)}時間前`;
   return `${Math.floor(sec/86400)}日前`;
+};
+const fmtDateTime = (ts) => {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const M = d.getMonth()+1;
+  const D = d.getDate();
+  const h = String(d.getHours()).padStart(2,"0");
+  const m = String(d.getMinutes()).padStart(2,"0");
+  return `${M}/${D} ${h}:${m}`;
 };
 
 // ── GAS API ─────────────────────────────────────────────────
@@ -127,21 +136,21 @@ function SetupScreen({ onSave }) {
   };
 
   return (
-    <div style={{minHeight:"100vh",background:"#0f1117",color:"#e2e8f0",padding:"24px 20px",boxSizing:"border-box"}}>
+    <div style={{minHeight:"100vh",background:"#f1f5f9",color:"#1e293b",padding:"24px 20px",boxSizing:"border-box"}}>
       <div style={{maxWidth:480,margin:"0 auto"}}>
         <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:24}}>
-          <div style={{width:44,height:44,borderRadius:10,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>📦</div>
+          <div style={{width:44,height:44,borderRadius:10,background:"linear-gradient(135deg,#0d9488,#0f766e)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>📦</div>
           <div>
             <div style={{fontWeight:700,fontSize:18}}>棚卸しツール</div>
-            <div style={{fontSize:12,color:"#475569"}}>初期設定</div>
+            <div style={{fontSize:12,color:"#94a3b8"}}>初期設定</div>
           </div>
         </div>
 
-        <div style={{background:"#1e2030",borderRadius:12,padding:"16px 18px",border:"1px solid #2d3158",marginBottom:20}}>
-          <div style={{fontSize:13,color:"#94a3b8",marginBottom:6,fontWeight:600}}>📌 はじめに</div>
+        <div style={{background:"#ffffff",borderRadius:12,padding:"16px 18px",border:"1px solid #e2e8f0",marginBottom:20}}>
+          <div style={{fontSize:13,color:"#64748b",marginBottom:6,fontWeight:600}}>📌 はじめに</div>
           <div style={{fontSize:12,color:"#64748b",lineHeight:1.7}}>
             このツールはGoogleスプレッドシートと連携してデータを共有します。
-            管理者から教えてもらった<strong style={{color:"#a78bfa"}}>GAS URL</strong>を入力してください。
+            管理者から教えてもらった<strong style={{color:"#0f766e"}}>GAS URL</strong>を入力してください。
           </div>
         </div>
 
@@ -149,20 +158,20 @@ function SetupScreen({ onSave }) {
           <div style={{fontSize:12,color:"#64748b",marginBottom:6,fontWeight:600}}>GAS Webアプリ URL</div>
           <input value={url} onChange={e=>setUrl(e.target.value)}
             placeholder="https://script.google.com/macros/s/..."
-            style={{width:"100%",padding:"10px 12px",borderRadius:8,background:"#1e2030",border:"1px solid #2d3158",color:"#e2e8f0",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"monospace"}}/>
+            style={{width:"100%",padding:"10px 12px",borderRadius:8,background:"#ffffff",border:"1px solid #e2e8f0",color:"#1e293b",fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"monospace"}}/>
         </div>
 
         <div style={{marginBottom:16}}>
           <div style={{fontSize:12,color:"#64748b",marginBottom:6,fontWeight:600}}>お名前</div>
           <input value={user} onChange={e=>setUser(e.target.value)}
             placeholder="例: 田中"
-            style={{width:"100%",padding:"10px 12px",borderRadius:8,background:"#1e2030",border:"1px solid #2d3158",color:"#e2e8f0",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
-          <div style={{fontSize:11,color:"#475569",marginTop:4}}>誰が入力したかを記録するために使います</div>
+            style={{width:"100%",padding:"10px 12px",borderRadius:8,background:"#ffffff",border:"1px solid #e2e8f0",color:"#1e293b",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+          <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>誰が入力したかを記録するために使います</div>
         </div>
 
-        {error && <div style={{color:"#f87171",fontSize:13,marginBottom:14,padding:"10px 12px",background:"#200d0d",borderRadius:8,border:"1px solid #7f1d1d"}}>{error}</div>}
+        {error && <div style={{color:"#dc2626",fontSize:13,marginBottom:14,padding:"10px 12px",background:"#fee2e2",borderRadius:8,border:"1px solid #7f1d1d"}}>{error}</div>}
 
-        <button onClick={handleSave} disabled={testing} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:testing?"#334155":"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontWeight:700,fontSize:15,cursor:testing?"default":"pointer"}}>
+        <button onClick={handleSave} disabled={testing} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:testing?"#cbd5e1":"linear-gradient(135deg,#0d9488,#0f766e)",color:"#fff",fontWeight:700,fontSize:15,cursor:testing?"default":"pointer"}}>
           {testing ? "接続テスト中..." : "✓ 開始"}
         </button>
       </div>
@@ -193,14 +202,14 @@ function CameraScanner({ onDetected, onClose }) {
   return(
     <div style={{position:"fixed",inset:0,zIndex:300,background:"#000",display:"flex",flexDirection:"column"}}>
       <div ref={videoRef} style={{flex:1,position:"relative",overflow:"hidden"}}>
-        {ready&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}><div style={{width:"72%",height:80,border:"2px solid rgba(99,102,241,0.9)",borderRadius:8,boxShadow:"0 0 0 9999px rgba(0,0,0,0.45)",position:"relative"}}><div style={{position:"absolute",left:0,right:0,height:2,background:"linear-gradient(90deg,transparent,#6366f1,transparent)",animation:"scanline 1.8s ease-in-out infinite",top:"50%"}}/></div></div>}
-        {!ready&&!error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}><div style={{width:40,height:40,border:"3px solid #6366f1",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/><div style={{color:"#94a3b8",fontSize:14}}>カメラ起動中…</div></div>}
-        {error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}><div style={{color:"#f87171",fontSize:13,textAlign:"center",lineHeight:1.6}}>{error}</div></div>}
+        {ready&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"none"}}><div style={{width:"72%",height:80,border:"2px solid rgba(13,148,136,0.9)",borderRadius:8,boxShadow:"0 0 0 9999px rgba(0,0,0,0.45)",position:"relative"}}><div style={{position:"absolute",left:0,right:0,height:2,background:"linear-gradient(90deg,transparent,#0d9488,transparent)",animation:"scanline 1.8s ease-in-out infinite",top:"50%"}}/></div></div>}
+        {!ready&&!error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}><div style={{width:40,height:40,border:"3px solid #6366f1",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/><div style={{color:"#64748b",fontSize:14}}>カメラ起動中…</div></div>}
+        {error&&<div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}><div style={{color:"#dc2626",fontSize:13,textAlign:"center",lineHeight:1.6}}>{error}</div></div>}
       </div>
-      <div style={{background:"rgba(15,17,23,0.96)",borderTop:"1px solid #2d3158",padding:"16px 20px 28px",display:"flex",flexDirection:"column",gap:10}}>
-        {lastCode&&<div style={{textAlign:"center",fontSize:13,color:"#94a3b8"}}>読み取り: <span style={{color:"#6366f1",fontWeight:700,fontFamily:"monospace"}}>{lastCode}</span></div>}
-        <div style={{textAlign:"center",fontSize:12,color:"#475569"}}>バーコードを枠内に合わせてください</div>
-        <button onClick={onClose} style={{padding:13,borderRadius:10,border:"1px solid #2d3158",background:"#1e2030",color:"#94a3b8",fontSize:15,fontWeight:600,cursor:"pointer"}}>✕ 閉じる</button>
+      <div style={{background:"rgba(15,17,23,0.96)",borderTop:"1px solid #e2e8f0",padding:"16px 20px 28px",display:"flex",flexDirection:"column",gap:10}}>
+        {lastCode&&<div style={{textAlign:"center",fontSize:13,color:"#64748b"}}>読み取り: <span style={{color:"#0d9488",fontWeight:700,fontFamily:"monospace"}}>{lastCode}</span></div>}
+        <div style={{textAlign:"center",fontSize:12,color:"#94a3b8"}}>バーコードを枠内に合わせてください</div>
+        <button onClick={onClose} style={{padding:13,borderRadius:10,border:"1px solid #e2e8f0",background:"#ffffff",color:"#64748b",fontSize:15,fontWeight:600,cursor:"pointer"}}>✕ 閉じる</button>
       </div>
     </div>
   );
@@ -239,46 +248,46 @@ function SettingsScreen({ gasUrl, user, onClose, onResetSetup, onProductsChanged
   };
 
   return(
-    <div style={{position:"fixed",inset:0,zIndex:200,background:"#0f1117",display:"flex",flexDirection:"column"}}>
-      <div style={{background:"linear-gradient(135deg,#1e2030,#161824)",borderBottom:"1px solid #2d3158",padding:"14px 16px",flexShrink:0}}>
+    <div style={{position:"fixed",inset:0,zIndex:200,background:"#f1f5f9",display:"flex",flexDirection:"column"}}>
+      <div style={{background:"#ffffff",borderBottom:"1px solid #e2e8f0",padding:"14px 16px",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-          <button onClick={onClose} style={{width:32,height:32,borderRadius:8,border:"1px solid #2d3158",background:"#0f1117",color:"#94a3b8",fontSize:16,cursor:"pointer"}}>←</button>
+          <button onClick={onClose} style={{width:32,height:32,borderRadius:8,border:"1px solid #e2e8f0",background:"#f1f5f9",color:"#64748b",fontSize:16,cursor:"pointer"}}>←</button>
           <div style={{fontWeight:700,fontSize:15}}>設定</div>
         </div>
-        <div style={{display:"flex",gap:0,background:"#0f1117",borderRadius:9,padding:3}}>
+        <div style={{display:"flex",gap:0,background:"#f1f5f9",borderRadius:9,padding:3}}>
           {[{k:"import",l:"📂 商品インポート"},{k:"info",l:"ℹ️ 接続情報"}].map(t=>(
-            <button key={t.k} onClick={()=>setTab(t.k)} style={{flex:1,padding:"7px 0",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,background:tab===t.k?"#1e2030":"transparent",color:tab===t.k?"#e2e8f0":"#475569"}}>{t.l}</button>
+            <button key={t.k} onClick={()=>setTab(t.k)} style={{flex:1,padding:"7px 0",borderRadius:7,border:"none",cursor:"pointer",fontSize:12,fontWeight:700,background:tab===t.k?"#ffffff":"transparent",color:tab===t.k?"#1e293b":"#94a3b8"}}>{t.l}</button>
           ))}
         </div>
       </div>
 
       {tab==="import"&&(
         <div style={{flex:1,overflowY:"auto",padding:"16px"}}>
-          <div style={{background:"#1e2030",borderRadius:10,padding:"14px 16px",border:"1px solid #2d3158",marginBottom:14}}>
-            <div style={{fontSize:13,fontWeight:600,color:"#e2e8f0",marginBottom:6}}>商品マスタの一括登録</div>
+          <div style={{background:"#ffffff",borderRadius:10,padding:"14px 16px",border:"1px solid #e2e8f0",marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:600,color:"#1e293b",marginBottom:6}}>商品マスタの一括登録</div>
             <div style={{fontSize:12,color:"#64748b",lineHeight:1.6}}>CSVファイルを選択するとGoogleスプレッドシートに直接登録されます。<br/>全端末で即時反映されます。</div>
           </div>
 
           <input ref={fileRef} type="file" accept=".csv" onChange={handleFileChange} style={{display:"none"}}/>
-          <button onClick={()=>fileRef.current.click()} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:8}}>📂 CSVファイルを選択</button>
-          <button onClick={downloadTemplate} style={{width:"100%",padding:12,borderRadius:10,border:"1px solid #2d3158",background:"#1e2030",color:"#94a3b8",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:14}}>⬇️ CSVテンプレートをダウンロード</button>
+          <button onClick={()=>fileRef.current.click()} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:"linear-gradient(135deg,#0d9488,#0f766e)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:8}}>📂 CSVファイルを選択</button>
+          <button onClick={downloadTemplate} style={{width:"100%",padding:12,borderRadius:10,border:"1px solid #e2e8f0",background:"#ffffff",color:"#64748b",fontSize:13,fontWeight:600,cursor:"pointer",marginBottom:14}}>⬇️ CSVテンプレートをダウンロード</button>
 
-          <div style={{fontSize:11,color:"#475569",lineHeight:1.7,padding:"10px 12px",background:"#0f1117",borderRadius:8,border:"1px solid #1e2535"}}>
-            <strong style={{color:"#94a3b8"}}>列の順序</strong><br/>
+          <div style={{fontSize:11,color:"#94a3b8",lineHeight:1.7,padding:"10px 12px",background:"#f1f5f9",borderRadius:8,border:"1px solid #1e2535"}}>
+            <strong style={{color:"#64748b"}}>列の順序</strong><br/>
             JAN, 商品名, SKU, カテゴリ, 単位, 入数/箱, 仕入原価<br/>
-            <span style={{color:"#334155"}}>※ JAN・商品名は必須、他は省略可</span>
+            <span style={{color:"#cbd5e1"}}>※ JAN・商品名は必須、他は省略可</span>
           </div>
 
           {importResult && (
-            <div style={{marginTop:14,padding:"12px 14px",borderRadius:8,background:importResult.error?"#200d0d":"#0d2010",border:`1px solid ${importResult.error?"#7f1d1d":"#166534"}`,color:importResult.error?"#f87171":"#4ade80",fontSize:13}}>
+            <div style={{marginTop:14,padding:"12px 14px",borderRadius:8,background:importResult.error?"#fee2e2":"#dcfce7",border:`1px solid ${importResult.error?"#b91c1c":"#16a34a"}`,color:importResult.error?"#dc2626":"#16a34a",fontSize:13}}>
               {importResult.error ? `❌ エラー: ${importResult.error}` : `✓ ${importResult.count}件をスプレッドシートに登録しました`}
-              {importResult.errors&&importResult.errors.length>0&&<div style={{fontSize:11,color:"#f59e0b",marginTop:6}}>※ {importResult.errors.length}件のエラーをスキップ</div>}
+              {importResult.errors&&importResult.errors.length>0&&<div style={{fontSize:11,color:"#ca8a04",marginTop:6}}>※ {importResult.errors.length}件のエラーをスキップ</div>}
             </div>
           )}
 
-          <div style={{marginTop:24,padding:"14px",borderRadius:10,background:"#161824",border:"1px solid #1e2535"}}>
-            <div style={{fontSize:13,fontWeight:600,color:"#e2e8f0",marginBottom:4}}>現在の登録件数</div>
-            <div style={{fontSize:24,fontWeight:700,color:"#a78bfa"}}>{products.length} 件</div>
+          <div style={{marginTop:24,padding:"14px",borderRadius:10,background:"#ffffff",border:"1px solid #1e2535"}}>
+            <div style={{fontSize:13,fontWeight:600,color:"#1e293b",marginBottom:4}}>現在の登録件数</div>
+            <div style={{fontSize:24,fontWeight:700,color:"#0f766e"}}>{products.length} 件</div>
           </div>
         </div>
       )}
@@ -287,14 +296,14 @@ function SettingsScreen({ gasUrl, user, onClose, onResetSetup, onProductsChanged
         <div style={{flex:1,overflowY:"auto",padding:"16px"}}>
           <div style={{marginBottom:14}}>
             <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>現在のユーザー</div>
-            <div style={{padding:"10px 12px",background:"#1e2030",borderRadius:8,border:"1px solid #2d3158",fontSize:14,fontWeight:600}}>{user}</div>
+            <div style={{padding:"10px 12px",background:"#ffffff",borderRadius:8,border:"1px solid #e2e8f0",fontSize:14,fontWeight:600}}>{user}</div>
           </div>
           <div style={{marginBottom:14}}>
             <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>GAS URL</div>
-            <div style={{padding:"10px 12px",background:"#1e2030",borderRadius:8,border:"1px solid #2d3158",fontSize:11,fontFamily:"monospace",color:"#94a3b8",wordBreak:"break-all"}}>{gasUrl}</div>
+            <div style={{padding:"10px 12px",background:"#ffffff",borderRadius:8,border:"1px solid #e2e8f0",fontSize:11,fontFamily:"monospace",color:"#64748b",wordBreak:"break-all"}}>{gasUrl}</div>
           </div>
           <button onClick={()=>{if(window.confirm("接続情報をリセットしますか？再度GAS URL入力が必要になります。"))onResetSetup();}}
-            style={{width:"100%",padding:12,borderRadius:10,border:"1px solid #2d1515",background:"#1a0d0d",color:"#7f1d1d",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+            style={{width:"100%",padding:12,borderRadius:10,border:"1px solid #2d1515",background:"#fef2f2",color:"#b91c1c",fontSize:13,fontWeight:600,cursor:"pointer"}}>
             🔄 接続情報をリセット
           </button>
         </div>
@@ -302,15 +311,15 @@ function SettingsScreen({ gasUrl, user, onClose, onResetSetup, onProductsChanged
 
       {showImportConfirm&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"flex-end",zIndex:300}}>
-          <div style={{width:"100%",background:"#1e2030",borderRadius:"16px 16px 0 0",padding:24,border:"1px solid #2d3158"}}>
+          <div style={{width:"100%",background:"#ffffff",borderRadius:"16px 16px 0 0",padding:24,border:"1px solid #e2e8f0"}}>
             <div style={{fontWeight:700,fontSize:16,marginBottom:6}}>CSVインポート確認</div>
             <div style={{fontSize:13,color:"#64748b",marginBottom:10}}>{showImportConfirm.parsed.length}件を読み込みました</div>
-            <div style={{padding:"10px 12px",background:"#200d0d",borderRadius:8,border:"1px solid #7f1d1d",marginBottom:14,fontSize:12,color:"#f87171",lineHeight:1.6}}>
+            <div style={{padding:"10px 12px",background:"#fee2e2",borderRadius:8,border:"1px solid #7f1d1d",marginBottom:14,fontSize:12,color:"#dc2626",lineHeight:1.6}}>
               ⚠ <strong>既存の商品マスタは全て上書き</strong>されます。よろしいですか？
             </div>
-            {showImportConfirm.errors.length>0&&<div style={{marginBottom:10,padding:"8px 10px",background:"#1a1500",borderRadius:8,border:"1px solid #713f12"}}>{showImportConfirm.errors.slice(0,3).map((e,i)=><div key={i} style={{fontSize:11,color:"#f59e0b"}}>{e}</div>)}{showImportConfirm.errors.length>3&&<div style={{fontSize:11,color:"#f59e0b"}}>他 {showImportConfirm.errors.length-3}件</div>}</div>}
-            <button onClick={handleImportConfirm} disabled={uploading} style={{width:"100%",marginBottom:8,padding:13,borderRadius:10,border:"none",background:uploading?"#334155":"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontWeight:700,fontSize:14,cursor:uploading?"default":"pointer"}}>{uploading?"アップロード中...":"✓ 上書き登録する"}</button>
-            <button onClick={()=>setShowImportConfirm(null)} disabled={uploading} style={{width:"100%",padding:12,borderRadius:10,border:"1px solid #2d3158",background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer"}}>キャンセル</button>
+            {showImportConfirm.errors.length>0&&<div style={{marginBottom:10,padding:"8px 10px",background:"#fef9c3",borderRadius:8,border:"1px solid #713f12"}}>{showImportConfirm.errors.slice(0,3).map((e,i)=><div key={i} style={{fontSize:11,color:"#ca8a04"}}>{e}</div>)}{showImportConfirm.errors.length>3&&<div style={{fontSize:11,color:"#ca8a04"}}>他 {showImportConfirm.errors.length-3}件</div>}</div>}
+            <button onClick={handleImportConfirm} disabled={uploading} style={{width:"100%",marginBottom:8,padding:13,borderRadius:10,border:"none",background:uploading?"#cbd5e1":"linear-gradient(135deg,#0d9488,#0f766e)",color:"#fff",fontWeight:700,fontSize:14,cursor:uploading?"default":"pointer"}}>{uploading?"アップロード中...":"✓ 上書き登録する"}</button>
+            <button onClick={()=>setShowImportConfirm(null)} disabled={uploading} style={{width:"100%",padding:12,borderRadius:10,border:"1px solid #e2e8f0",background:"transparent",color:"#64748b",fontSize:13,cursor:"pointer"}}>キャンセル</button>
           </div>
         </div>
       )}
@@ -324,22 +333,22 @@ function CloseMonthModal({ products, getActual, getCost, totalVal, ym, onConfirm
   const counted = products.filter(p=>isCounted(p)).length;
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",display:"flex",alignItems:"flex-end",zIndex:250}}>
-      <div style={{width:"100%",background:"#1e2030",borderRadius:"16px 16px 0 0",padding:24,border:"1px solid #2d3158"}}>
+      <div style={{width:"100%",background:"#ffffff",borderRadius:"16px 16px 0 0",padding:24,border:"1px solid #e2e8f0"}}>
         <div style={{fontWeight:700,fontSize:17,marginBottom:4}}>今月の棚卸しを締める</div>
         <div style={{fontSize:13,color:"#64748b",marginBottom:16}}>CSVをダウンロード ＋ スプレッドシートをクリアします</div>
         <div style={{marginBottom:14}}>
           <div style={{fontSize:12,color:"#64748b",marginBottom:6}}>対象月</div>
-          <input type="month" value={targetYm} onChange={e=>setTargetYm(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:8,background:"#0f1117",border:"1px solid #2d3158",color:"#e2e8f0",fontSize:15,outline:"none",boxSizing:"border-box"}}/>
+          <input type="month" value={targetYm} onChange={e=>setTargetYm(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:8,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#1e293b",fontSize:15,outline:"none",boxSizing:"border-box"}}/>
         </div>
-        <div style={{background:"#0f1117",borderRadius:10,padding:"12px 16px",border:"1px solid #2d3158",marginBottom:16}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:12,color:"#64748b"}}>棚卸金額合計</span><span style={{fontSize:18,fontWeight:700,color:"#e2e8f0"}}>¥{fmt(totalVal)}</span></div>
-          <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,color:"#64748b"}}>計上済み商品</span><span style={{fontSize:13,fontWeight:600,color:counted===products.length?"#22c55e":"#f59e0b"}}>{counted} / {products.length} 件</span></div>
+        <div style={{background:"#f1f5f9",borderRadius:10,padding:"12px 16px",border:"1px solid #e2e8f0",marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><span style={{fontSize:12,color:"#64748b"}}>棚卸金額合計</span><span style={{fontSize:18,fontWeight:700,color:"#1e293b"}}>¥{fmt(totalVal)}</span></div>
+          <div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:12,color:"#64748b"}}>計上済み商品</span><span style={{fontSize:13,fontWeight:600,color:counted===products.length?"#22c55e":"#ca8a04"}}>{counted} / {products.length} 件</span></div>
         </div>
-        <div style={{padding:"10px 12px",background:"#200d0d",borderRadius:8,border:"1px solid #7f1d1d",marginBottom:14,fontSize:12,color:"#f87171",lineHeight:1.6}}>
+        <div style={{padding:"10px 12px",background:"#fee2e2",borderRadius:8,border:"1px solid #7f1d1d",marginBottom:14,fontSize:12,color:"#dc2626",lineHeight:1.6}}>
           ⚠ 全端末の棚卸し入力データが<strong>クリア</strong>されます。<br/>必ずCSVを保管してください。
         </div>
-        <button onClick={()=>onConfirm(targetYm)} disabled={closing} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:closing?"#334155":"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",fontWeight:700,fontSize:15,cursor:closing?"default":"pointer",marginBottom:8}}>{closing?"処理中...":"✓ 締めてCSVダウンロード"}</button>
-        <button onClick={onClose} disabled={closing} style={{width:"100%",padding:12,borderRadius:10,border:"1px solid #2d3158",background:"transparent",color:"#64748b",fontSize:14,cursor:"pointer"}}>キャンセル</button>
+        <button onClick={()=>onConfirm(targetYm)} disabled={closing} style={{width:"100%",padding:14,borderRadius:10,border:"none",background:closing?"#cbd5e1":"linear-gradient(135deg,#0d9488,#0f766e)",color:"#fff",fontWeight:700,fontSize:15,cursor:closing?"default":"pointer",marginBottom:8}}>{closing?"処理中...":"✓ 締めてCSVダウンロード"}</button>
+        <button onClick={onClose} disabled={closing} style={{width:"100%",padding:12,borderRadius:10,border:"1px solid #e2e8f0",background:"transparent",color:"#64748b",fontSize:14,cursor:"pointer"}}>キャンセル</button>
       </div>
     </div>
   );
@@ -352,7 +361,8 @@ function InventoryTool() {
     return (url && user) ? {url, user} : null;
   });
   const [products, setProducts] = useState([]);
-  const [counts, setCounts]     = useState({});
+  const [counts, setCounts]     = useState({}); // サーバー上の確定値
+  const [drafts, setDrafts]     = useState({}); // 入力中の下書き
   const [history, setHistory]   = useState(()=>lsGet(STORE_HISTORY)||[]);
   const [loading, setLoading]   = useState(false);
   const [lastSync, setLastSync] = useState(0);
@@ -370,7 +380,6 @@ function InventoryTool() {
   const [closing, setClosing]   = useState(false);
   const [toast, setToast]       = useState(null);
   const toastTimer = useRef(null);
-  const saveTimers = useRef({});
 
   const showToast=(msg,success)=>{
     clearTimeout(toastTimer.current); setToast({msg,success});
@@ -388,19 +397,14 @@ function InventoryTool() {
         if (!silent) showToast("読み込みエラー: "+data.error, false);
       } else {
         setProducts(data.products || []);
-        // ローカルで保存中（savingIds に含まれる）の商品はサーバー値で上書きしない
-        setCounts(prev => {
-          const next = {...(data.counts || {})};
-          savingIds.forEach(id => { if (prev[id]) next[id] = prev[id]; });
-          return next;
-        });
+        setCounts(data.counts || {});
         setLastSync(Date.now());
       }
     } catch(e) {
       if (!silent) showToast("接続エラー", false);
     }
     setLoading(false); setSyncing(false);
-  }, [setup, savingIds]);
+  }, [setup]);
 
   useEffect(() => { if (setup) syncFromGas(); }, [setup]);
 
@@ -414,30 +418,52 @@ function InventoryTool() {
   // 履歴保存
   useEffect(() => { lsSet(STORE_HISTORY, history); }, [history]);
 
-  // 数量更新（debounce保存）
-  const updateCount = (id, field, val) => {
-    setCounts(prev => ({
-      ...prev,
-      [id]: { ...(prev[id]||{cases:"",loose:"",note:""}), [field]: val, updatedBy: setup.user, updatedAt: Date.now() }
-    }));
+  // 下書き更新（ローカルのみ・GAS送信しない）
+  const updateDraft = (id, field, val) => {
+    setDrafts(prev => {
+      const current = prev[id] || (counts[id] ? {...counts[id]} : {cases:"",loose:"",note:""});
+      return { ...prev, [id]: { ...current, [field]: val } };
+    });
+  };
+
+  // 登録ボタン押下時にGASへ送信
+  const commitDraft = async (id) => {
+    const draft = drafts[id];
+    if (!draft) return;
     setSavingIds(prev => new Set([...prev, id]));
-    if (saveTimers.current[id]) clearTimeout(saveTimers.current[id]);
-    saveTimers.current[id] = setTimeout(async () => {
-      const c = (cRef.current[id]) || {cases:"",loose:"",note:""};
-      try {
-        const res = await gasSaveCount(setup.url, {
-          id, cases:c.cases, loose:c.loose, note:c.note, user:setup.user
-        });
-        if (res.error) showToast("保存失敗: "+res.error, false);
-      } catch(e) { showToast("保存失敗（オフライン？）", false); }
-      setSavingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
-    }, 600);
+    try {
+      const res = await gasSaveCount(setup.url, {
+        id, cases:draft.cases, loose:draft.loose, note:draft.note||"", user:setup.user
+      });
+      if (res.error) {
+        showToast("登録失敗: "+res.error, false);
+      } else {
+        // サーバー値に反映、下書きクリア
+        setCounts(prev => ({ ...prev, [id]: {
+          cases: draft.cases, loose: draft.loose, note: draft.note||"",
+          updatedBy: setup.user, updatedAt: res.ts || Date.now()
+        }}));
+        setDrafts(prev => { const n = {...prev}; delete n[id]; return n; });
+        showToast("✓ 登録しました", true);
+      }
+    } catch(e) { showToast("登録失敗（オフライン？）", false); }
+    setSavingIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+  };
+
+  // 下書き破棄
+  const discardDraft = (id) => {
+    setDrafts(prev => { const n = {...prev}; delete n[id]; return n; });
   };
 
   const cRef = useRef({}); cRef.current = counts;
 
   const categories = ["すべて",...new Set(products.map(p=>p.category))];
-  const merged = products.map(p => ({ ...p, ...(counts[p.id]||{cases:"",loose:"",note:""}) }));
+  const merged = products.map(p => {
+    const draft = drafts[p.id];
+    const saved = counts[p.id] || {cases:"",loose:"",note:"",updatedBy:"",updatedAt:0};
+    const display = draft ? { ...saved, ...draft } : saved;
+    return { ...p, ...display, hasDraft: !!draft };
+  });
 
   const getActual   = p => calcActual(p.cases,p.loose,p.caseQty);
   const getCost     = p => (p.cost===""||p.cost===undefined||isNaN(Number(p.cost)))?null:Number(p.cost);
@@ -457,7 +483,7 @@ function InventoryTool() {
 
   const handleDetected=useCallback((code)=>{
     const found=merged.find(p=>p.id===code||p.sku===code);
-    if(found){setFlashId(found.id);setActiveId(found.id);setTimeout(()=>setFlashId(null),1000);setFilter("all");setSearch("");setShowCamera(false);showToast(`✓ ${found.name}`,true);setTimeout(()=>document.getElementById(`row-${found.id}`)?.scrollIntoView({behavior:"smooth",block:"center"}),300);}
+    if(found){setFlashId(found.id);setActiveId(found.id);setTimeout(()=>setFlashId(null),3000);setFilter("all");setSearch("");setShowCamera(false);showToast(`✓ ${found.name}`,true);setTimeout(()=>document.getElementById(`row-${found.id}`)?.scrollIntoView({behavior:"smooth",block:"center"}),300);}
     else showToast(`未登録: ${code}`,false);
   },[merged]);
 
@@ -492,53 +518,53 @@ function InventoryTool() {
   };
 
   const numBtn=(onClick,label)=>(
-    <button onClick={onClick} style={{width:34,height:40,borderRadius:7,border:"1px solid #2d3158",background:"#0f1117",color:"#64748b",fontSize:20,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{label}</button>
+    <button onClick={onClick} style={{width:34,height:40,borderRadius:7,border:"1px solid #e2e8f0",background:"#f1f5f9",color:"#64748b",fontSize:20,cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>{label}</button>
   );
 
   if (!setup) return <SetupScreen onSave={s=>setSetup(s)}/>;
   if (screen==="settings") return <SettingsScreen gasUrl={setup.url} user={setup.user} products={products} onClose={()=>setScreen("main")} onResetSetup={()=>{lsSet(STORE_GAS_URL,null);lsSet(STORE_USER,null);setSetup(null);}} onProductsChanged={()=>syncFromGas()}/>;
 
   return(
-    <div style={{background:"#0f1117",minHeight:"100vh",color:"#e2e8f0"}}>
+    <div style={{background:"#f1f5f9",minHeight:"100vh",color:"#1e293b"}}>
       {showCamera&&<CameraScanner onDetected={handleDetected} onClose={()=>setShowCamera(false)}/>}
       {showCloseMonth&&<CloseMonthModal products={merged} getActual={getActual} getCost={getCost} totalVal={totalStockVal} ym={nowYM()} onConfirm={handleCloseMonth} onClose={()=>setShowCloseMonth(false)} closing={closing}/>}
 
       {toast&&(
-        <div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:400,padding:"10px 20px",borderRadius:10,background:toast.success?"#0d2010":"#200d0d",border:`1px solid ${toast.success?"#166534":"#7f1d1d"}`,color:toast.success?"#4ade80":"#f87171",fontSize:13,fontWeight:600,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
+        <div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",zIndex:400,padding:"10px 20px",borderRadius:10,background:toast.success?"#dcfce7":"#fee2e2",border:`1px solid ${toast.success?"#16a34a":"#b91c1c"}`,color:toast.success?"#16a34a":"#dc2626",fontSize:13,fontWeight:600,whiteSpace:"nowrap",boxShadow:"0 4px 20px rgba(0,0,0,0.5)"}}>
           {toast.msg}
         </div>
       )}
 
-      <div style={{background:"linear-gradient(135deg,#1e2030,#161824)",borderBottom:"1px solid #2d3158",padding:"14px 16px",position:"sticky",top:0,zIndex:100}}>
+      <div style={{background:"#ffffff",borderBottom:"1px solid #e2e8f0",padding:"14px 16px",position:"sticky",top:0,zIndex:100,boxShadow:"0 1px 3px rgba(0,0,0,0.04)"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:34,height:34,borderRadius:8,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17}}>📦</div>
+            <div style={{width:34,height:34,borderRadius:8,background:"linear-gradient(135deg,#0d9488,#0f766e)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17}}>📦</div>
             <div>
               <div style={{fontWeight:700,fontSize:15}}>棚卸しツール</div>
-              <div style={{fontSize:11,color:"#475569",display:"flex",alignItems:"center",gap:6}}>
+              <div style={{fontSize:11,color:"#94a3b8",display:"flex",alignItems:"center",gap:6}}>
                 <span>{setup.user}</span>
                 <span>·</span>
                 <span style={{display:"flex",alignItems:"center",gap:3}}>
-                  {syncing && <span style={{width:6,height:6,borderRadius:"50%",background:"#6366f1",animation:"pulse 1.2s infinite"}}/>}
+                  {syncing && <span style={{width:6,height:6,borderRadius:"50%",background:"#0d9488",animation:"pulse 1.2s infinite"}}/>}
                   {lastSync ? fmtAgo(lastSync) : "未同期"}
                 </span>
               </div>
             </div>
           </div>
           <div style={{display:"flex",gap:6}}>
-            <button onClick={()=>syncFromGas()} style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,background:"#1e2030",color:"#94a3b8",border:"1px solid #2d3158"}}>🔄</button>
-            <button onClick={()=>setScreen("settings")} style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,background:"#1e2030",color:"#94a3b8",border:"1px solid #2d3158"}}>⚙️</button>
-            <button onClick={()=>setShowCamera(true)} style={{padding:"7px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700,background:"linear-gradient(135deg,#6366f1,#8b5cf6)",color:"#fff",border:"none",display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:15}}>📷</span>スキャン</button>
+            <button onClick={()=>syncFromGas()} style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,background:"#ffffff",color:"#64748b",border:"1px solid #e2e8f0"}}>🔄</button>
+            <button onClick={()=>setScreen("settings")} style={{padding:"7px 10px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:600,background:"#ffffff",color:"#64748b",border:"1px solid #e2e8f0"}}>⚙️</button>
+            <button onClick={()=>setShowCamera(true)} style={{padding:"7px 12px",borderRadius:8,cursor:"pointer",fontSize:12,fontWeight:700,background:"linear-gradient(135deg,#0d9488,#0f766e)",color:"#fff",border:"none",display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:15}}>📷</span>スキャン</button>
           </div>
         </div>
 
-        <div style={{background:"#0f1117",borderRadius:10,padding:"12px 16px",border:"1px solid #2d3158",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div style={{background:"#f1f5f9",borderRadius:10,padding:"12px 16px",border:"1px solid #e2e8f0",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div>
-            <div style={{fontSize:11,color:"#475569",marginBottom:4}}>棚卸金額合計</div>
-            <div style={{fontSize:24,fontWeight:700,color:"#e2e8f0",letterSpacing:"-0.5px"}}>¥{fmt(totalStockVal)}</div>
-            <div style={{fontSize:10,color:"#475569",marginTop:2}}>{valuedCount}/{products.length}件計上</div>
+            <div style={{fontSize:11,color:"#64748b",marginBottom:4}}>棚卸金額合計</div>
+            <div style={{fontSize:24,fontWeight:700,color:"#1e293b",letterSpacing:"-0.5px"}}>¥{fmt(totalStockVal)}</div>
+            <div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>{valuedCount}/{products.length}件計上</div>
           </div>
-          <button onClick={()=>setShowCloseMonth(true)} style={{padding:"10px 16px",borderRadius:10,border:"none",cursor:"pointer",background:"linear-gradient(135deg,#166534,#14532d)",color:"#4ade80",fontWeight:700,fontSize:13,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+          <button onClick={()=>setShowCloseMonth(true)} style={{padding:"10px 16px",borderRadius:10,cursor:"pointer",background:"#dcfce7",color:"#15803d",border:"1px solid #86efac",fontWeight:700,fontSize:13,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
             <span style={{fontSize:18}}>✓</span><span>今月を締める</span>
           </button>
         </div>
@@ -547,95 +573,111 @@ function InventoryTool() {
           <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:"#64748b",marginBottom:3}}>
             <span>数量入力: {countedCount} / {products.length} 件</span><span>{progress}%</span>
           </div>
-          <div style={{background:"#1e2030",borderRadius:99,height:5,overflow:"hidden"}}>
+          <div style={{background:"#ffffff",borderRadius:99,height:5,overflow:"hidden"}}>
             <div style={{height:"100%",borderRadius:99,background:"linear-gradient(90deg,#6366f1,#8b5cf6)",width:`${progress}%`,transition:"width 0.4s"}}/>
           </div>
         </div>
 
         <div style={{position:"relative",marginBottom:8}}>
           <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:13}}>🔍</span>
-          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="商品名・SKU・JANコードで検索" style={{width:"100%",padding:"8px 8px 8px 30px",borderRadius:8,background:"#1e2030",border:"1px solid #2d3158",color:"#e2e8f0",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="商品名・SKU・JANコードで検索" style={{width:"100%",padding:"8px 8px 8px 30px",borderRadius:8,background:"#ffffff",border:"1px solid #e2e8f0",color:"#1e293b",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
         </div>
 
         <div style={{display:"flex",gap:5,overflowX:"auto",paddingBottom:2}}>
-          {categories.map(c=>(<button key={c} onClick={()=>setCategory(c)} style={{padding:"4px 9px",borderRadius:99,whiteSpace:"nowrap",cursor:"pointer",background:category===c?"#6366f1":"#1e2030",color:category===c?"#fff":"#64748b",border:`1px solid ${category===c?"#6366f1":"#2d3158"}`,fontSize:11,fontWeight:600}}>{c}</button>))}
-          <div style={{width:1,background:"#2d3158",margin:"0 3px"}}/>
-          {[{k:"all",l:"全件"},{k:"uncounted",l:"未計上"},{k:"nocost",l:"原価未設定"}].map(f=>(<button key={f.k} onClick={()=>setFilter(f.k)} style={{padding:"4px 9px",borderRadius:99,whiteSpace:"nowrap",cursor:"pointer",background:filter===f.k?"#334155":"transparent",color:filter===f.k?"#e2e8f0":"#475569",border:`1px solid ${filter===f.k?"#475569":"transparent"}`,fontSize:11,fontWeight:600}}>{f.l}</button>))}
+          {categories.map(c=>(<button key={c} onClick={()=>setCategory(c)} style={{padding:"4px 9px",borderRadius:99,whiteSpace:"nowrap",cursor:"pointer",background:category===c?"#0d9488":"#ffffff",color:category===c?"#fff":"#64748b",border:`1px solid ${category===c?"#0d9488":"#e2e8f0"}`,fontSize:11,fontWeight:600}}>{c}</button>))}
+          <div style={{width:1,background:"#e2e8f0",margin:"0 3px"}}/>
+          {[{k:"all",l:"全件"},{k:"uncounted",l:"未計上"},{k:"nocost",l:"原価未設定"}].map(f=>(<button key={f.k} onClick={()=>setFilter(f.k)} style={{padding:"4px 9px",borderRadius:99,whiteSpace:"nowrap",cursor:"pointer",background:filter===f.k?"#cbd5e1":"transparent",color:filter===f.k?"#1e293b":"#94a3b8",border:`1px solid ${filter===f.k?"#94a3b8":"transparent"}`,fontSize:11,fontWeight:600}}>{f.l}</button>))}
         </div>
       </div>
 
       <div style={{padding:"10px 10px 80px"}}>
-        {loading && products.length===0 && <div style={{textAlign:"center",color:"#475569",padding:60,fontSize:14}}><div style={{width:32,height:32,border:"3px solid #6366f1",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite",margin:"0 auto 12px"}}/>商品データを読み込み中…</div>}
+        {loading && products.length===0 && <div style={{textAlign:"center",color:"#94a3b8",padding:60,fontSize:14}}><div style={{width:32,height:32,border:"3px solid #6366f1",borderTopColor:"transparent",borderRadius:"50%",animation:"spin 0.8s linear infinite",margin:"0 auto 12px"}}/>商品データを読み込み中…</div>}
 
-        {!loading && products.length===0 && <div style={{textAlign:"center",color:"#475569",padding:60,fontSize:14}}><div style={{fontSize:32,marginBottom:12}}>📭</div>商品が登録されていません<br/>⚙️設定からCSVインポートしてください</div>}
+        {!loading && products.length===0 && <div style={{textAlign:"center",color:"#94a3b8",padding:60,fontSize:14}}><div style={{fontSize:32,marginBottom:12}}>📭</div>商品が登録されていません<br/>⚙️設定からCSVインポートしてください</div>}
 
-        {filtered.length===0 && products.length>0 && <div style={{textAlign:"center",color:"#475569",padding:40,fontSize:14}}>該当する商品がありません</div>}
+        {filtered.length===0 && products.length>0 && <div style={{textAlign:"center",color:"#94a3b8",padding:40,fontSize:14}}>該当する商品がありません</div>}
         {filtered.map(p=>{
           const actual=getActual(p),counted=isCounted(p),cost=getCost(p),stockVal=getStockVal(p);
           const isFlash=flashId===p.id,isActive=activeId===p.id;
           const isSaving=savingIds.has(p.id);
           const otherUserEditing = p.updatedBy && p.updatedBy !== setup.user && (Date.now()-(p.updatedAt||0))<30000;
           return(
-            <div id={`row-${p.id}`} key={p.id} onClick={()=>setActiveId(isActive?null:p.id)} style={{background:isFlash?"linear-gradient(135deg,#1a2040,#2d1f5e)":isActive?"#1e2030":"#161824",border:`1px solid ${isFlash?"#6366f1":isActive?"#334155":"#1e2535"}`,borderRadius:12,padding:"12px 14px",marginBottom:8,transition:"all 0.25s"}}>
+            <div id={`row-${p.id}`} key={p.id} onClick={()=>setActiveId(isActive?null:p.id)} style={{background:isFlash?"#fef3c7":isActive?"#ffffff":"#ffffff",border:`${isFlash?"3px":"1px"} solid ${isFlash?"#ca8a04":isActive?"#cbd5e1":"#f1f5f9"}`,borderRadius:12,padding:"12px 14px",marginBottom:8,transition:"all 0.25s",boxShadow:isFlash?"0 0 24px rgba(251,191,36,0.5)":"none"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontWeight:600,fontSize:14,marginBottom:3,display:"flex",alignItems:"center",gap:6}}>
+                  <div style={{fontWeight:isFlash?800:600,fontSize:isFlash?16:14,marginBottom:3,display:"flex",alignItems:"center",gap:6,color:isFlash?"#78350f":"#1e293b"}}>
+                    {isFlash && <span style={{fontSize:13,padding:"2px 6px",borderRadius:4,background:"#ca8a04",color:"#ffffff",fontWeight:800}}>📷 SCAN</span>}
                     {p.name}
-                    {isSaving && <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:"#1e2030",color:"#6366f1"}}>保存中</span>}
+                    {isSaving && <span style={{fontSize:9,padding:"1px 5px",borderRadius:4,background:"#f1f5f9",color:"#0d9488"}}>保存中</span>}
                   </div>
-                  <div style={{fontSize:11,color:"#475569",display:"flex",flexWrap:"wrap",gap:"4px 8px"}}>
+                  <div style={{fontSize:11,color:isFlash?"#78350f":"#94a3b8",display:"flex",flexWrap:"wrap",gap:"4px 8px"}}>
                     <span style={{fontFamily:"monospace",fontSize:10}}>{p.id}</span>
-                    <span style={{background:"#1e2535",padding:"1px 5px",borderRadius:4,color:"#64748b",fontSize:10}}>{p.category}</span>
-                    <span style={{background:"#0f2010",padding:"1px 5px",borderRadius:4,color:"#4ade80",fontSize:10}}>入数 {p.caseQty}{p.unit}/箱</span>
-                    {cost!==null&&<span style={{background:"#1a0f2e",padding:"1px 5px",borderRadius:4,color:"#a78bfa",fontSize:10}}>¥{fmt(cost)}/{p.unit}</span>}
+                    <span style={{background:isFlash?"#fde68a":"#f1f5f9",padding:"1px 5px",borderRadius:4,color:isFlash?"#78350f":"#64748b",fontSize:10}}>{p.category}</span>
+                    <span style={{background:isFlash?"#fde68a":"#dcfce7",padding:"1px 5px",borderRadius:4,color:isFlash?"#78350f":"#16a34a",fontSize:10}}>入数 {p.caseQty}{p.unit}/箱</span>
+                    {cost!==null&&<span style={{background:isFlash?"#fde68a":"#ccfbf1",padding:"1px 5px",borderRadius:4,color:isFlash?"#78350f":"#0f766e",fontSize:10}}>¥{fmt(cost)}/{p.unit}</span>}
                   </div>
-                  {p.updatedBy && counted && (
-                    <div style={{fontSize:10,color:"#475569",marginTop:4}}>
-                      {otherUserEditing && <span style={{color:"#f59e0b"}}>⚠ </span>}
-                      {p.updatedBy} さん更新 · {fmtAgo(p.updatedAt)}
+                  {p.updatedBy && (counts[p.id]?.cases !== "" || counts[p.id]?.loose !== "") && (
+                    <div style={{fontSize:10,color:isFlash?"#78350f":"#94a3b8",marginTop:4}}>
+                      {otherUserEditing && <span style={{color:"#ca8a04"}}>⚠ </span>}
+                      {p.updatedBy} さん · {fmtDateTime(p.updatedAt)}
+                    </div>
+                  )}
+                  {p.hasDraft && (
+                    <div style={{fontSize:10,color:"#ca8a04",marginTop:4,fontWeight:600}}>
+                      ✏️ 未登録の入力があります
                     </div>
                   )}
                 </div>
                 <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontSize:9,color:"#475569",marginBottom:2}}>棚卸金額</div>
-                  <div style={{fontSize:16,fontWeight:700,color:stockVal!==null?"#e2e8f0":"#2d3158"}}>{stockVal!==null?`¥${fmt(stockVal)}`:"—"}</div>
-                  {actual!==null&&<div style={{fontSize:10,color:"#475569"}}>{actual} {p.unit}</div>}
+                  <div style={{fontSize:9,color:isFlash?"#78350f":"#94a3b8",marginBottom:2}}>棚卸金額</div>
+                  <div style={{fontSize:16,fontWeight:700,color:isFlash?"#78350f":(stockVal!==null?"#1e293b":"#cbd5e1")}}>{stockVal!==null?`¥${fmt(stockVal)}`:"—"}</div>
+                  {actual!==null&&<div style={{fontSize:10,color:isFlash?"#78350f":"#94a3b8"}}>{actual} {p.unit}</div>}
                 </div>
               </div>
 
               <div style={{marginTop:10,display:"flex",gap:10}} onClick={e=>e.stopPropagation()}>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:10,color:"#64748b",marginBottom:5,display:"flex",justifyContent:"space-between"}}><span>📦 段ボール（箱）</span><span style={{color:"#334155"}}>×{p.caseQty}{p.unit}</span></div>
+                  <div style={{fontSize:10,color:isFlash?"#78350f":"#64748b",marginBottom:5,display:"flex",justifyContent:"space-between"}}><span>📦 段ボール（箱）</span><span style={{color:isFlash?"#92400e":"#cbd5e1"}}>×{p.caseQty}{p.unit}</span></div>
                   <div style={{display:"flex",alignItems:"center",gap:5}}>
-                    {numBtn(()=>updateCount(p.id,"cases",String(Math.max(0,(parseInt(p.cases)||0)-1))),"−")}
-                    <input type="number" min={0} value={p.cases} onChange={e=>updateCount(p.id,"cases",e.target.value)} placeholder="0" style={{flex:1,padding:"7px 4px",textAlign:"center",background:"#0f1117",border:`2px solid ${p.cases!==""?"#6366f1":"#2d3158"}`,borderRadius:8,color:"#e2e8f0",fontSize:20,fontWeight:700,outline:"none"}}/>
-                    {numBtn(()=>updateCount(p.id,"cases",String((parseInt(p.cases)||0)+1)),"＋")}
+                    {numBtn(()=>updateDraft(p.id,"cases",String(Math.max(0,(parseInt(p.cases)||0)-1))),"−")}
+                    <input type="number" min={0} value={p.cases} onChange={e=>updateDraft(p.id,"cases",e.target.value)} placeholder="0" style={{flex:1,padding:"7px 4px",textAlign:"center",background:"#f1f5f9",border:`2px solid ${p.cases!==""?"#0d9488":"#e2e8f0"}`,borderRadius:8,color:"#1e293b",fontSize:20,fontWeight:700,outline:"none"}}/>
+                    {numBtn(()=>updateDraft(p.id,"cases",String((parseInt(p.cases)||0)+1)),"＋")}
                   </div>
-                  {p.cases!==""&&<div style={{fontSize:10,color:"#475569",marginTop:3,textAlign:"center"}}>= {(parseInt(p.cases)||0)*p.caseQty} {p.unit}</div>}
+                  {p.cases!==""&&<div style={{fontSize:10,color:isFlash?"#78350f":"#94a3b8",marginTop:3,textAlign:"center"}}>= {(parseInt(p.cases)||0)*p.caseQty} {p.unit}</div>}
                 </div>
-                <div style={{display:"flex",alignItems:"center",paddingTop:18,color:"#2d3158",fontSize:22}}>＋</div>
+                <div style={{display:"flex",alignItems:"center",paddingTop:18,color:isFlash?"#92400e":"#e2e8f0",fontSize:22}}>＋</div>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:10,color:"#64748b",marginBottom:5}}>🔓 バラ（{p.unit}）</div>
+                  <div style={{fontSize:10,color:isFlash?"#78350f":"#64748b",marginBottom:5}}>🔓 バラ（{p.unit}）</div>
                   <div style={{display:"flex",alignItems:"center",gap:5}}>
-                    {numBtn(()=>updateCount(p.id,"loose",String(Math.max(0,(parseInt(p.loose)||0)-1))),"−")}
-                    <input type="number" min={0} value={p.loose} onChange={e=>updateCount(p.id,"loose",e.target.value)} placeholder="0" style={{flex:1,padding:"7px 4px",textAlign:"center",background:"#0f1117",border:`2px solid ${p.loose!==""?"#8b5cf6":"#2d3158"}`,borderRadius:8,color:"#e2e8f0",fontSize:20,fontWeight:700,outline:"none"}}/>
-                    {numBtn(()=>updateCount(p.id,"loose",String((parseInt(p.loose)||0)+1)),"＋")}
+                    {numBtn(()=>updateDraft(p.id,"loose",String(Math.max(0,(parseInt(p.loose)||0)-1))),"−")}
+                    <input type="number" min={0} value={p.loose} onChange={e=>updateDraft(p.id,"loose",e.target.value)} placeholder="0" style={{flex:1,padding:"7px 4px",textAlign:"center",background:"#f1f5f9",border:`2px solid ${p.loose!==""?"#0f766e":"#e2e8f0"}`,borderRadius:8,color:"#1e293b",fontSize:20,fontWeight:700,outline:"none"}}/>
+                    {numBtn(()=>updateDraft(p.id,"loose",String((parseInt(p.loose)||0)+1)),"＋")}
                   </div>
-                  {p.loose!==""&&<div style={{fontSize:10,color:"#475569",marginTop:3,textAlign:"center"}}>{p.loose} {p.unit}</div>}
+                  {p.loose!==""&&<div style={{fontSize:10,color:isFlash?"#78350f":"#94a3b8",marginTop:3,textAlign:"center"}}>{p.loose} {p.unit}</div>}
                 </div>
               </div>
 
               {counted&&(
-                <div style={{marginTop:10,padding:"9px 12px",borderRadius:8,background:"#0a0d14",border:"1px solid #1e2535",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <div style={{fontSize:12,color:"#64748b"}}>{p.cases||0}箱×{p.caseQty} ＋ {p.loose||0}バラ<span style={{color:"#475569",margin:"0 6px"}}>=</span><span style={{fontWeight:700,fontSize:15,color:"#e2e8f0"}}>{actual} {p.unit}</span></div>
-                  {stockVal!==null&&<div style={{fontWeight:700,fontSize:14,color:"#6366f1"}}>¥{fmt(stockVal)}</div>}
+                <div style={{marginTop:10,padding:"9px 12px",borderRadius:8,background:isFlash?"#fef9c3":"#f8fafc",border:`1px solid ${isFlash?"#ca8a04":"#f1f5f9"}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{fontSize:12,color:isFlash?"#78350f":"#64748b"}}>{p.cases||0}箱×{p.caseQty} ＋ {p.loose||0}バラ<span style={{color:isFlash?"#92400e":"#94a3b8",margin:"0 6px"}}>=</span><span style={{fontWeight:700,fontSize:15,color:isFlash?"#78350f":"#1e293b"}}>{actual} {p.unit}</span></div>
+                  {stockVal!==null&&<div style={{fontWeight:700,fontSize:14,color:isFlash?"#78350f":"#0d9488"}}>¥{fmt(stockVal)}</div>}
+                </div>
+              )}
+
+              {/* 登録ボタン（下書きあり時のみ表示） */}
+              {p.hasDraft && (
+                <div style={{marginTop:10,display:"flex",gap:8}} onClick={e=>e.stopPropagation()}>
+                  <button onClick={()=>discardDraft(p.id)} disabled={isSaving} style={{padding:"10px 14px",borderRadius:10,border:"1px solid #e2e8f0",background:"#ffffff",color:"#64748b",fontSize:13,fontWeight:600,cursor:isSaving?"default":"pointer"}}>キャンセル</button>
+                  <button onClick={()=>commitDraft(p.id)} disabled={isSaving} style={{flex:1,padding:"10px",borderRadius:10,border:"none",background:isSaving?"#cbd5e1":"linear-gradient(135deg,#16a34a,#15803d)",color:"#fff",fontSize:14,fontWeight:700,cursor:isSaving?"default":"pointer"}}>
+                    {isSaving ? "登録中..." : "✓ 登録"}
+                  </button>
                 </div>
               )}
 
               {isActive&&(
                 <div style={{marginTop:8}} onClick={e=>e.stopPropagation()}>
-                  <input value={p.note} onChange={e=>updateCount(p.id,"note",e.target.value)} placeholder="備考（破損・移動など）" style={{width:"100%",padding:"7px 10px",borderRadius:7,background:"#0f1117",border:"1px solid #2d3158",color:"#e2e8f0",fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:6}}/>
-                  <button onClick={()=>{updateCount(p.id,"cases","");updateCount(p.id,"loose","");updateCount(p.id,"note","");}} style={{width:"100%",padding:6,borderRadius:7,border:"1px solid #2d1515",background:"#1a0d0d",color:"#7f1d1d",fontSize:11,cursor:"pointer"}}>リセット（数量・備考）</button>
+                  <input value={p.note} onChange={e=>updateDraft(p.id,"note",e.target.value)} placeholder="備考（破損・移動など）" style={{width:"100%",padding:"7px 10px",borderRadius:7,background:"#f1f5f9",border:"1px solid #e2e8f0",color:"#1e293b",fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:6}}/>
+                  <button onClick={()=>{updateDraft(p.id,"cases","");updateDraft(p.id,"loose","");updateDraft(p.id,"note","");}} style={{width:"100%",padding:6,borderRadius:7,border:"1px solid #2d1515",background:"#fef2f2",color:"#b91c1c",fontSize:11,cursor:"pointer"}}>リセット（数量・備考）</button>
                 </div>
               )}
             </div>
