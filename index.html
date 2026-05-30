@@ -475,7 +475,16 @@ function InventoryTool() {
   const progress      = products.length>0 ? Math.round((countedCount/products.length)*100) : 0;
 
   const filtered = merged.filter(p=>{
-    const matchSearch=p.name.includes(search)||p.sku.toLowerCase().includes(search.toLowerCase())||p.id.includes(search);
+    const q = (search||"").trim();
+    let matchSearch;
+    if (q === "") {
+      matchSearch = true;
+    } else {
+      const name = String(p.name||"");
+      const sku  = String(p.sku||"");
+      const id   = String(p.id||"");
+      matchSearch = name.includes(q) || sku.toLowerCase().includes(q.toLowerCase()) || id.includes(q);
+    }
     const matchCat=category==="すべて"||p.category===category;
     const matchFilter=filter==="all"?true:filter==="uncounted"?!isCounted(p):filter==="nocost"?getCost(p)===null:true;
     return matchSearch&&matchCat&&matchFilter;
